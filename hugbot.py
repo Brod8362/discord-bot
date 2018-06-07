@@ -15,6 +15,8 @@ from bs4 import BeautifulSoup #must be installed
 import yaml #must be installed
 import urllib.parse
 import io 
+from PIL import Image #must be installed
+import math
 
 #some global variables
 currentvoice = {}	#this is used in voice commands
@@ -276,7 +278,6 @@ async def cmd_sankaku(message):
 	image, number_found = await get_content(session, 'img', f"https://chan.sankakucomplex.com/post/show/{pick}", attributes={"id":"image"}, limit=1)
 	image_local = session.get(f"http:{image.attrs['src']}")
 	image_name, trash = image_local.url.split("/")[-1].split("?")
-	print(image_name)
 	await client.send_file(message.channel, filename=image_name, fp=io.BytesIO(image_local.content), content=f"```Tags used: {tags.replace('+',', ')} \n https://chan.sankakucomplex.com/post/show/{pick}```")
 	#await client.send_message(message.channel, f'Tags used: **{tags.replace("+",", ")}** \n http://{image.attrs["src"].replace("//","")}')
 
@@ -362,8 +363,26 @@ async def cmd_servers(message):
 #footer_content=f"{str(len(client.servers))} servers",footer_icon_url=None)
 	await client.send_message(message.channel, embed=embd)
 	
-
-
+@commands.register("sosad", help="Quickly make a 'so sad' meme.")
+async def cmd_sosad(message):
+	try:
+		sourceurl = message.attachments[0]["url"]
+	except IndexError:
+		await client.send_message(message.channel, "An image could not be found. Make sure it's attached to your message, and isn't a link to an image.")
+		return
+	sourcedimensions = (message.attachments[0]["width"], message.attachments[0]["height"])
+	source = requests.get(sourceurl)
+	source = io.BytesIO(source.content)
+	source = Image.open(source)
+	sosad = Image.open("resources/sosad.jpg")
+	ratio = sosad.height/sosad.width
+	sosad = sosad.resize((source.width, math.ceil(source.width*ratio)))
+	new_size = (source.width, source.height+sosad.height)
+	newimage = Image.new("RGB", new_size)
+	newimage.paste(source)
+	newimage.paste(sosad, (0, source.height))
+	newimage.save("resources/temp.jpg")
+	await client.send_file(message.channel, fp="resources/temp.jpg", content="This is ***SO SAD*** can we hit ***50*** likes?!??!")
 #this always needs to be at the end, dont forget retard		
 @client.event
 async def on_ready():
@@ -381,6 +400,8 @@ async def on_ready():
 		global adminid
 		adminid = AppInfo.owner.id
 		return
+
+
 
 
 

@@ -3,3 +3,4 @@ nsfw_list
 hugbot-venv/
 *.swp
 *.pyc
+resources/temp.jpg
