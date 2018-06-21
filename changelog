@@ -2,3 +2,6 @@
 	- Inital Creation
 2018-06-07
 	- Added the sosad command. 
+2018-06-21 
+	- Added watch keys. Servers can now configure their watch channel as they please, and add keywords to look out for.
+

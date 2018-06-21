@@ -1,4 +1,4 @@
-#!/bin/usr/python3
+#!/usr/bin/env python3
 #import all the things, if in NP++ i recommend alt+1 
 import discord #must be installed
 import asyncio
@@ -28,8 +28,8 @@ genericlist = []
 #blacklistdir = "C:/Users/Blake/Documents/Actual Documents/Discord Bot/blacklist.txt" #directory for blacklist file, if not present blacklist is ersaed on reboot
 #blacklist = set(line.strip() for line in open(blacklistdir)) #loads blcaklist into set blacklist.
 #variables for storage n shit
-nsfw_enabled = set()
 
+serverconfig = {}
 
 
 #log stuff
@@ -42,13 +42,15 @@ config = {}
 with open("config.yaml", "r") as stream:
 	config = (yaml.load(stream))
 		
+
+with open("serverdata.yml", "r") as stream:
+	serverconfig = (yaml.load(stream))
+	if serverconfig == None:
+		serverconfig = {}
  
 p = config["prefix"]
 adminid = config["adminid"]
 
-#loading NSFW values into set 
-for line in open('nsfw_list'):
-	nsfw_enabled.add(line.strip())
 
 #loading opus for voice functionality
 if not discord.opus.is_loaded():
@@ -118,6 +120,15 @@ async def get_content(session, search_class, site, attributes=None, limit=None, 
 	if limit == 1:
 		return results[0], found
 	return results, found
+
+async def create_server_config(serverid): #str, needs server id NOT server object
+	serverconfig[serverid] = {"keys":set(), "nsfw_channels":set(), "log_channel":None}
+
+async def save_server_config():
+	with open('serverdata.yml', 'w') as outfile:
+		yaml.dump(serverconfig, outfile, default_flow_style=False)
+
+
 	
 class CommandRegistry:
 	def __init__(self, prefix):
@@ -168,18 +179,35 @@ commands = CommandRegistry(p) #this is the prefix
 async def on_message(message):
 	if message.author.bot:
 		return
+	if not message.server.id in serverconfig:
+		await create_server_config(message.server.id)
 	elif message.content.startswith(".. "):
 		cmd, key, content = message.content.split(" ", 2)
 		embd = await embed_gen(title="Quote Created", desc=f"**{message.author.mention}** created quote **{key}** with content **{content}**", color=0x000000, author=message.author, footer_author=True, footer_author_id=True)
 		channelset = message.server.get_channel("277384105245802497")
 		await client.send_message(channelset, embed=embd)
-	elif message.content.startswith(".qdel "):
+	elif message.content.startswith(".qdel "): #nadeko logging 
 		confirmation = await client.wait_for_message(author=await get_user("116275390695079945"))
 		if "deleted." in confirmation.embeds[0]["description"]:
 			cmd, id, = message.content.split(" ", 1)
 			embd = await embed_gen(title="Quote Deleted", desc=f"**{message.author.mention}** deleted quote **{id}**", color=0xFF0000, author=message.author, footer_author=True, footer_author_id=True)
-			channelset = message.server.get_channel("277384105245802497")
+			channelset = message.server.get_channel(serverconfig[message.server.id]["log_channel"])
 			await client.send_message(channelset, embed=embd)
+
+
+	content = message.content #key watching
+	if serverconfig[message.server.id]["keys"]:
+		keys_escaped = "|".join(map(re.escape, serverconfig[message.server.id]["keys"]))
+		content = re.sub(f"((?:{keys_escaped})+)", r"**\1**", content)
+	if content != message.content:
+		embed = await embed_gen(title=f"Keyword Detected in {message.channel.name}", author=message.author, footer_author=True, footer_author_id=True, desc=content)
+		try:
+			await client.send_message(client.get_channel(serverconfig[message.server.id]["log_channel"]), embed=embed)
+
+		except:
+			await client.send_message(client.get_channel(serverconfig[message.server.id]["log_channel"]), f"big ouchie! \n ```{traceback.format_exc()}```")
+			traceback.print_exc()
+
 	try:
 		cmd = commands.get(message.content.split()[0])
 	except IndexError:
@@ -234,8 +262,7 @@ async def cmd_stop(message):
 				embd = await embed_gen(desc="Shutdown cancelled", type="info")
 				await client.send_message(message.channel, embed=embd)
 		if arg == "f":
-			embd = await embed_gen(desc="Forceful shutdown.", type="info")
-			await client.send_message(message.channel, embed = embd)
+			await client.add_reaction(message, "\N{REGIONAL INDICATOR SYMBOL LETTER K}")
 			await client.close()
 			sys.exit()
 			return
@@ -258,7 +285,7 @@ async def cmd_configure(message):
 	
 @commands.register("sankaku", help="Retrieves image(s) from Sankaku using specified tags.", syntax=f"(tags)")
 async def cmd_sankaku(message):
-	if message.channel.id not in nsfw_enabled:
+	if message.channel.id not in serverconfig[message.server.id]["nsfw_channels"]:
 		await client.send_message(message.channel, "NSFW is not enabled in this channel.")
 		return
 	await client.send_typing(message.channel)
@@ -283,7 +310,7 @@ async def cmd_sankaku(message):
 
 @commands.register("gelbooru", help="Retrieves image(s) from gelbooru using specified tags.", syntax=f"(tags)")
 async def cmd_gelbooru(message):
-	if message.channel.id not in nsfw_enabled:
+	if message.channel.id not in serverconfig[message.server.id]["nsfw_channels"]:
 		await client.send_message(message.channel, "NSFW is not enabled in this channel.")
 		return
 	await client.send_typing(message.channel)
@@ -310,23 +337,23 @@ async def cmd_nsfw(message):
 	status = ""
 	if not await check_admin(message.author):
 		return
-	if message.channel.id in nsfw_enabled:
+	if message.channel.id in serverconfig[message.server.id]["nsfw_channels"]:
 		status = "On"
 	else:
 		status = "Off"
 	await client.send_message(message.channel, f"NSFW Status for channel **{message.channel.mention}** is **{status}**. Reply **on** to turn it on, **off** to turn it off, or **cancel** to cancel.")
 	choice = await client.wait_for_message(author=message.author, timeout=30)
 	if choice.content.lower() == "on":
-		nsfw_enabled.add(message.channel.id)
 		await client.send_message(message.channel, f"NSFW **Enabled** in **{message.channel.mention}**")
+		if not message.channel.id in serverconfig[message.server.id]["nsfw_channels"]:
+			serverconfig[message.server.id]["nsfw_channels"].add(message.channel.id)
 	elif choice.content.lower() == "off":
-		nsfw_enabled.remove(message.channel.id)
 		await client.send_message(message.channel, f"NSFW **Disabled** in **{message.channel.mention}**")
+		if message.channel.id in serverconfig[message.server.id]["nsfw_channels"]:
+			serverconfig[message.server.id]["nsfw_channels"].add(message.channel.id)
 	else:
 		await client.send_message(message.channel, "Operation cancelled.")
-	file = open("nsfw_list", "w")
-	for x in nsfw_enabled:
-		file.write(f"{x}\n")
+	await save_server_config()
 	
 @commands.register("uinfo", help="Find various information about a user.", syntax="(userid or NONE)")
 async def cmd_uinfo(message):
@@ -383,6 +410,71 @@ async def cmd_sosad(message):
 	newimage.paste(sosad, (0, source.height))
 	newimage.save("resources/temp.jpg")
 	await client.send_file(message.channel, fp="resources/temp.jpg", content="This is ***SO SAD*** can we hit ***50*** likes?!??!")
+
+#some comment lines
+#all server-related data is going to be stored in a dict of lists (or strings) that has all the info one could want stored - keywords, nsfw channels, 
+
+
+@commands.register("keywatch", help="Watch messages for a specific and log to a specified channel.", admin=True)
+async def cmd_keywatch(message):
+	if await check_admin(message.author) == False:
+		return
+	try:
+		if serverconfig[message.server.id] == None:
+			pass
+	except KeyError:
+		await create_server_config(message.server.id)
+	key = message.content.split(" ", 1)[1]
+	serverconfig[message.server.id]["keys"].add(key)
+	await client.send_message(message.channel, f"Added {key} to server keywords.")
+	await save_server_config()
+
+@commands.register("logchannel", help="Sets the current channel as the log channel.", admin=True)
+async def cmd_logchannel(message):
+	if await check_admin(message.author) == False:
+		return
+	if not message.server.id in serverconfig:
+		await create_server_config(message.server.id)
+	serverconfig[message.server.id]["log_channel"] = message.channel.id
+	await client.send_message(message.channel, f"Log channel has been set to {message.channel.mention}")
+	await save_server_config()
+
+@commands.register("8ball", help="Ask the all-seeing 8 ball a question.")
+async def cmd_8ball(message):
+	random_choices = ["It is certain.", "It is decidedly so.", "Without a doubt.", "Yes - definitely.", "You may rely on it.", "As I see it, yes.", "Most likely.", "Outlook good.", "Yes.", "Signs point to yes.", "Reply hazy, try again", "Ask again later.", "Better not tell you now.", "Cannot predict now.", "Concentrate and ask again.", "Don't count on it.", "My reply is no.", "My sources say no", "Outlook not so good.", "Very doubtful."]
+	choice = random.choice(random_choices)
+	await client.send_message(message.channel, choice)
+
+@commands.register("keylist", help="List all watch keywords for this server.", admin=True)
+async def cmd_keylist(message):
+	if await check_admin(message.author) == False:
+		return
+	string = ""
+	for x in serverconfig[message.server.id]["keys"]:
+		string += f"`{x}`, "
+	await client.send_message(message.channel, string)
+
+@commands.register("keyclear", help="Clears all server watch keys.", admin=True)
+async def cmd_keyclear(message):
+	if await check_admin(message.author) == False:
+		return
+
+	serverconfig[message.server.id]["keys"] = set()
+	await client.send_message(message.channel, "All server keys cleared.")
+	await save_server_config()
+
+@commands.register("keydel", help="Delete a server keyword.", admin=True)
+async def cmd_keyclear(message):
+	if await check_admin(message.author) == False:
+		return
+	key = message.content.split(" ", 1)[1]
+	try:
+		serverconfig[message.server.id]["keys"].remove(key)
+	except:
+		await client.send_message(message.channel, "That key isn't in the server keywords")
+		return
+	await client.send_message(message.channel, f"{key} has been removed from server keywords.")	
+	await save_server_config()
 #this always needs to be at the end, dont forget retard		
 @client.event
 async def on_ready():

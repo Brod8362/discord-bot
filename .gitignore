@@ -4,3 +4,4 @@ hugbot-venv/
 *.swp
 *.pyc
 resources/temp.jpg
+serverdata.yml
