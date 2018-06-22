@@ -6,4 +6,7 @@
 	- Added watch keys. Servers can now configure their watch channel as they please, and add keywords to look out for.
 2018-06-21
 	- Added a README.md
-
+2018-06-21
+	- Fixed a bug where case mattered for watch keys.
+	- Fixed a bug where the program would crash if serverdata.yml was not present.
+	- Corrected a few typos in the README. 

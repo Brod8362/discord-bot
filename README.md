@@ -1,7 +1,7 @@
 How to Run
 ==========
 
-Required repositories
+Required dependencies
 ---------------------
 discord.py
 requests
@@ -9,7 +9,7 @@ bs4
 PyYAML
 Pillow
 
-Installing repositories
+Installing dependencies
 -----------------------
 You can install libraries on Linux with
 
@@ -26,7 +26,7 @@ If you don't feel like hosting the bot yourself but want it on your server, [I h
 
 First time setup
 ----------------
-Open up config_default.yaml with your preffered text editor. Here you can change some basic options for the bot.
+Open up config_default.yaml with your preferred text editor. Here you can change some basic options for the bot.
 Get your token and put it in the quotes after "token". You can also change the prefix here, by default it's b[ . 
 If desired, you can specify a specific user to be the admin of the bot. By default, it automatically selects based 
 on the owner of the bot token. After you've made your desired changes, rename the file to "config.yaml". 

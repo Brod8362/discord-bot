@@ -17,6 +17,7 @@ import urllib.parse
 import io 
 from PIL import Image #must be installed
 import math
+import os.path
 
 #some global variables
 currentvoice = {}	#this is used in voice commands
@@ -36,6 +37,8 @@ serverconfig = {}
 logging.basicConfig(format='%(asctime)-15s %(levelname)-8s %(message)s', level=logging.INFO)
 logger = logging.getLogger("test-bot")
 
+if not os.path.isfile("serverdata.yml"):
+	open("serverdata.yml", "w+")
 
 config = {}
 #reading configs
@@ -197,8 +200,8 @@ async def on_message(message):
 
 	content = message.content #key watching
 	if serverconfig[message.server.id]["keys"]:
-		keys_escaped = "|".join(map(re.escape, serverconfig[message.server.id]["keys"]))
-		content = re.sub(f"((?:{keys_escaped})+)", r"**\1**", content)
+		keys_escaped = "|".join(serverconfig[message.server.id]["keys"])
+		content = re.sub(f"((?:{keys_escaped})+)", r"**\1**", content, flags=re.IGNORECASE)
 	if content != message.content:
 		embed = await embed_gen(title=f"Keyword Detected in {message.channel.name}", author=message.author, footer_author=True, footer_author_id=True, desc=content)
 		try:
