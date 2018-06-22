@@ -439,7 +439,7 @@ async def cmd_keywatch(message):
 	try:
 		re.compile(key)
 	except:
-		await client.send_message(message.channel, "Invalid Regular Exression.")
+		await client.send_message(message.channel, "Invalid Regular Expression.")
 		return	
 	serverconfig[message.server.id]["keys"].add(key)
 	await client.send_message(message.channel, f"Added {key} to server keywords.")
