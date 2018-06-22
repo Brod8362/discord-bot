@@ -10,9 +10,12 @@
 	- Fixed a bug where case mattered for watch keys.
 	- Fixed a bug where the program would crash if serverdata.yml was not present.
 	- Corrected a few typos in the README.
-2016-06-21
+2018-06-21
 	- A way to update the server database manually if it's not up to date.
 	- Fixed bug where [BOT ADMIN] would show if you didn't have admin in a server
 	- Command permissions are FINALLY done automatically, you just need the admin or bot_admin flags set when registering the command.
 	- Other bug fixes.
 	- Some preparation for future features. 
+2018-06-22
+	- Fixed improper regexes halting the bot on a global scale.
+	

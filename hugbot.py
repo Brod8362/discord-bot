@@ -212,15 +212,14 @@ async def on_message(message):
 
 
 	content = message.content #key watching
-	if serverconfig[message.server.id]["keys"]:
-		keys_escaped = "|".join(serverconfig[message.server.id]["keys"])
-		content = re.sub(f"((?:{keys_escaped})+)", r"**\1**", content, flags=re.IGNORECASE)
-	if content != message.content:
-		embed = await embed_gen(title=f"Keyword Detected in {message.channel.name}", author=message.author, footer_author=True, footer_author_id=True, desc=content)
-		try:
+	try:
+		if serverconfig[message.server.id]["keys"]:
+			keys_escaped = "|".join(serverconfig[message.server.id]["keys"])
+			content = re.sub(f"((?:{keys_escaped})+)", r"**\1**", content, flags=re.IGNORECASE)
+		if content != message.content:
+			embed = await embed_gen(title=f"Keyword Detected in {message.channel.name}", author=message.author, footer_author=True, footer_author_id=True, desc=content)
 			await client.send_message(client.get_channel(serverconfig[message.server.id]["log_channel"]), embed=embed)
-
-		except:
+	except:
 			await client.send_message(client.get_channel(serverconfig[message.server.id]["log_channel"]), f"big ouchie! \n ```{traceback.format_exc()}```")
 			traceback.print_exc()
 
@@ -437,6 +436,11 @@ async def cmd_keywatch(message):
 	except KeyError:
 		await create_server_config(message.server.id)
 	key = message.content.split(" ", 1)[1]
+	try:
+		re.compile(key)
+	except:
+		await client.send_message(message.channel, "Invalid Regular Exression.")
+		return	
 	serverconfig[message.server.id]["keys"].add(key)
 	await client.send_message(message.channel, f"Added {key} to server keywords.")
 	await save_server_config()
