@@ -125,13 +125,17 @@ async def get_content(session, search_class, site, attributes=None, limit=None, 
 	return results, found
 
 async def create_server_config(serverid): #str, needs server id NOT server object
-	serverconfig[serverid] = {"keys":set(), "nsfw_channels":set(), "log_channel":None}
+	serverconfig[serverid] = {"keys":set(), "nsfw_channels":set(), "log_channel":None, "extra_options":{}}
 
-async def save_server_config():
+async def save_server_config(): 
 	with open('serverdata.yml', 'w') as outfile:
 		yaml.dump(serverconfig, outfile, default_flow_style=False)
 
 
+async def upgrade_server_config(server): #this is only used for updating older configs, and as such WILL NOT have all variables, only ones added since the initial release. 
+	if not "extra_options" in serverconfig[server]:
+		serverconfig[server]["extra_options"] = {}
+	await save_server_config()
 	
 class CommandRegistry:
 	def __init__(self, prefix):
@@ -163,17 +167,26 @@ class CommandRegistry:
 	
 	async def get_help(self, name, user):
 		admin = await check_admin(user)
-		if admin and self.admin[name]: #for admin commands
-			return self.help[name]+" **[ADMIN]**"
-		elif not self.admin[name] and not self.sadmin[name]: #regular commands
+		
+		if  not self.admin[name] and not self.sadmin[name]: #regular commands
 			return self.help[name]
-		elif await check_bot_admin(user): #superadmin commands
+		elif admin and self.admin[name]: #for admin commands
+			return self.help[name]+" **[ADMIN]**"
+		elif await check_bot_admin(user) and self.sadmin[name]: #superadmin commands
 			return self.help[name]+" **[BOT ADMIN]**"
 		else:
 			return None
 	
 	def get_syntax(self, name):
 		return self.syntax[name]
+
+	def get_permission(self, name):
+		if self.admin[name] == True:
+			return "admin"
+		elif self.sadmin[name] == True:
+			return "sadmin"
+		else:
+			return "regular"
 
 commands = CommandRegistry(p) #this is the prefix 
 
@@ -215,8 +228,19 @@ async def on_message(message):
 		cmd = commands.get(message.content.split()[0])
 	except IndexError:
 		return
+	cmdname = message.content.split()[0].replace(p, "")
 	if cmd:
-		await cmd(message)
+		if commands.get_permission(cmdname) == "regular": #for regular commands
+			await cmd(message)
+			return
+		elif commands.get_permission(cmdname) == "admin" and await check_admin(message.author): #for admin commands
+			await cmd(message)
+			return
+		elif commands.get_permission(cmdname) == "sadmin" and await check_bot_admin(message.author): #for bot admin commands
+			await cmd(message)
+			return
+		else:
+			await client.add_reaction(message, "🚫")
 		
 
 @commands.register("help", help="Shows help for all available commands, or a specific command if specified.", syntax=f"(command or NONE)")
@@ -246,44 +270,35 @@ async def cmd_help(message):
 
 @commands.register("stop", help=f"Stops the bot.", syntax=f"(f)'", bot_admin = True)
 async def cmd_stop(message):
-	if str(message.author.id) == f"{adminid}":
-		command = f"{p}stop"
-		try:
-			command, arg = message.content.split(' ', 1)
-		except ValueError:
-			embd = await embed_gen(desc="Are you sure you want to shut down the bot? [Y/N]",type="warn")
-			await client.send_message(message.channel, embed=embd)
-			brod = message.author
-			input = await client.wait_for_message(timeout=10.0, author=brod)
-			if input.content.lower() == "y":
-				#await client.send_message(message.channel,"**Shutting down.**")
-				embd = await embed_gen(desc="Shutting down.", type="info")
-				await client.send_message(message.channel, embed = embd)
-				await client.close()
-				sys.exit()
-			else:
-				embd = await embed_gen(desc="Shutdown cancelled", type="info")
-				await client.send_message(message.channel, embed=embd)
-		if arg == "f":
-			await client.add_reaction(message, "\N{REGIONAL INDICATOR SYMBOL LETTER K}")
+	command = f"{p}stop"
+	try:
+		command, arg = message.content.split(' ', 1)
+	except ValueError:
+		embd = await embed_gen(desc="Are you sure you want to shut down the bot? [Y/N]",type="warn")
+		await client.send_message(message.channel, embed=embd)
+		brod = message.author
+		input = await client.wait_for_message(timeout=10.0, author=brod)
+		if input.content.lower() == "y":
+			#await client.send_message(message.channel,"**Shutting down.**")
+			embd = await embed_gen(desc="Shutting down.", type="info")
+			await client.send_message(message.channel, embed = embd)
 			await client.close()
 			sys.exit()
-			return
-	else: 
-		logger.info(f"attempted shut down by {message.author} in {message.server.name}")
-		embd = await embed_gen(title="\U0001F6AB No Permission", desc=f"Only unknown can do that.", color=0xFF0000, author=message.author)
-		await client.send_message(message.channel, embed=embd)
+		else:
+			embd = await embed_gen(desc="Shutdown cancelled", type="info")
+			await client.send_message(message.channel, embed=embd)
+	if arg == "f":
+		await client.add_reaction(message, "\N{REGIONAL INDICATOR SYMBOL LETTER K}")
+		await client.close()
+		sys.exit()
+		return
 
 @commands.register("invite", help="Creates an invite link for the bot.", syntax=f"", bot_admin=True)
 async def cmd_invite(message):
-	if not await check_bot_admin(message.author):
-		return
 	await client.send_message(message.channel, f"https://discordapp.com/oauth2/authorize?&client_id={client.user.id}&scope=bot&permissions=0")
 
 @commands.register("configure", admin=True)
 async def cmd_configure(message):
-	if not await check_admin(message.author):
-		return
 	await client.send_message(message.channel, "Work in progress.")
 	
 @commands.register("sankaku", help="Retrieves image(s) from Sankaku using specified tags.", syntax=f"(tags)")
@@ -338,8 +353,6 @@ async def cmd_gelbooru(message):
 @commands.register("nsfw", help="Enable or Disable NSFW in a channel.",admin=True)
 async def cmd_nsfw(message):
 	status = ""
-	if not await check_admin(message.author):
-		return
 	if message.channel.id in serverconfig[message.server.id]["nsfw_channels"]:
 		status = "On"
 	else:
@@ -384,8 +397,6 @@ async def cmd_sinfo(message):
 
 @commands.register("servers", help="See all servers the bot is in.", bot_admin=True)
 async def cmd_servers(message):
-	if not await check_bot_admin(message.author):
-		return
 	string = ""
 	for server in client.servers:
 		string += f"{server.name} \n"
@@ -418,10 +429,8 @@ async def cmd_sosad(message):
 #all server-related data is going to be stored in a dict of lists (or strings) that has all the info one could want stored - keywords, nsfw channels, 
 
 
-@commands.register("keywatch", help="Watch messages for a specific and log to a specified channel.", admin=True)
+@commands.register("keywatch", help="Watch messages for a specific and log to a specified channel.", admin=True, syntax="(watch keyword)")
 async def cmd_keywatch(message):
-	if await check_admin(message.author) == False:
-		return
 	try:
 		if serverconfig[message.server.id] == None:
 			pass
@@ -434,8 +443,6 @@ async def cmd_keywatch(message):
 
 @commands.register("logchannel", help="Sets the current channel as the log channel.", admin=True)
 async def cmd_logchannel(message):
-	if await check_admin(message.author) == False:
-		return
 	if not message.server.id in serverconfig:
 		await create_server_config(message.server.id)
 	serverconfig[message.server.id]["log_channel"] = message.channel.id
@@ -450,8 +457,6 @@ async def cmd_8ball(message):
 
 @commands.register("keylist", help="List all watch keywords for this server.", admin=True)
 async def cmd_keylist(message):
-	if await check_admin(message.author) == False:
-		return
 	string = ""
 	for x in serverconfig[message.server.id]["keys"]:
 		string += f"`{x}`, "
@@ -459,17 +464,12 @@ async def cmd_keylist(message):
 
 @commands.register("keyclear", help="Clears all server watch keys.", admin=True)
 async def cmd_keyclear(message):
-	if await check_admin(message.author) == False:
-		return
-
 	serverconfig[message.server.id]["keys"] = set()
 	await client.send_message(message.channel, "All server keys cleared.")
 	await save_server_config()
 
-@commands.register("keydel", help="Delete a server keyword.", admin=True)
+@commands.register("keydel", help="Delete a server keyword.", admin=True, syntax="(existing keyword)")
 async def cmd_keyclear(message):
-	if await check_admin(message.author) == False:
-		return
 	key = message.content.split(" ", 1)[1]
 	try:
 		serverconfig[message.server.id]["keys"].remove(key)
@@ -478,6 +478,12 @@ async def cmd_keyclear(message):
 		return
 	await client.send_message(message.channel, f"{key} has been removed from server keywords.")	
 	await save_server_config()
+
+@commands.register("dbupdate", help="Update the server's data file. Useful if you're having issues with newer commands.", admin=True)
+async def cmd_dbupdate(message):
+	await upgrade_server_config(message.server.id)
+	await client.send_message(message.channel, "The data file for this server has been updated.")
+
 #this always needs to be at the end, dont forget retard		
 @client.event
 async def on_ready():
