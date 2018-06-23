@@ -18,4 +18,7 @@
 	- Some preparation for future features. 
 2018-06-22
 	- Fixed improper regexes halting the bot on a global scale.
-	
+2018-06-23 
+	- Nadeko logging is now able to be enabled/disabled, for those who don't want it. 
+	- A new, rudimentary way to configure server variables has been added. It needs a facelift.
+		

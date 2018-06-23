@@ -18,6 +18,8 @@ import io
 from PIL import Image #must be installed
 import math
 import os.path
+from distutils import util
+
 
 #some global variables
 currentvoice = {}	#this is used in voice commands
@@ -135,6 +137,8 @@ async def save_server_config():
 async def upgrade_server_config(server): #this is only used for updating older configs, and as such WILL NOT have all variables, only ones added since the initial release. 
 	if not "extra_options" in serverconfig[server]:
 		serverconfig[server]["extra_options"] = {}
+	if not "nadeko_logging" in serverconfig[server]["extra_options"]:
+		serverconfig[server]["extra_options"]["nadeko_logging"] = 0
 	await save_server_config()
 	
 class CommandRegistry:
@@ -197,19 +201,19 @@ async def on_message(message):
 		return
 	if not message.server.id in serverconfig:
 		await create_server_config(message.server.id)
-	elif message.content.startswith(".. "):
-		cmd, key, content = message.content.split(" ", 2)
-		embd = await embed_gen(title="Quote Created", desc=f"**{message.author.mention}** created quote **{key}** with content **{content}**", color=0x000000, author=message.author, footer_author=True, footer_author_id=True)
-		channelset = message.server.get_channel("277384105245802497")
-		await client.send_message(channelset, embed=embd)
-	elif message.content.startswith(".qdel "): #nadeko logging 
-		confirmation = await client.wait_for_message(author=await get_user("116275390695079945"))
-		if "deleted." in confirmation.embeds[0]["description"]:
-			cmd, id, = message.content.split(" ", 1)
-			embd = await embed_gen(title="Quote Deleted", desc=f"**{message.author.mention}** deleted quote **{id}**", color=0xFF0000, author=message.author, footer_author=True, footer_author_id=True)
+	if serverconfig[message.server.id]["extra_options"]["nadeko_logging"] == 1:
+		if message.content.startswith(".. "):
+			cmd, key, content = message.content.split(" ", 2)
+			embd = await embed_gen(title="Quote Created", desc=f"**{message.author.mention}** created quote **{key}** with content **{content}**", color=0x000000, author=message.author, footer_author=True, footer_author_id=True)
 			channelset = message.server.get_channel(serverconfig[message.server.id]["log_channel"])
 			await client.send_message(channelset, embed=embd)
-
+		elif message.content.startswith(".qdel "): #nadeko logging 
+			confirmation = await client.wait_for_message(author=await get_user("116275390695079945"))
+			if "deleted." in confirmation.embeds[0]["description"]:
+				cmd, id, = message.content.split(" ", 1)
+				embd = await embed_gen(title="Quote Deleted", desc=f"**{message.author.mention}** deleted quote **{id}**", color=0xFF0000, author=message.author, footer_author=True, footer_author_id=True)
+				channelset = message.server.get_channel(serverconfig[message.server.id]["log_channel"])
+				await client.send_message(channelset, embed=embd)
 
 	content = message.content #key watching
 	try:
@@ -296,9 +300,26 @@ async def cmd_stop(message):
 async def cmd_invite(message):
 	await client.send_message(message.channel, f"https://discordapp.com/oauth2/authorize?&client_id={client.user.id}&scope=bot&permissions=0")
 
-@commands.register("configure", admin=True)
+@commands.register("configure")
 async def cmd_configure(message):
-	await client.send_message(message.channel, "Work in progress.")
+	await upgrade_server_config(message.server.id)
+	try:
+		cmd, option, new = message.content.split(" ", 3)
+	except:
+		string = ""
+		for x in serverconfig[message.server.id]["extra_options"]:
+			string += f"**{x}**:**{serverconfig[message.server.id]['extra_options'][x]}** \n"
+			await client.send_message(message.channel, string)
+	else:
+		if option in serverconfig[message.server.id]["extra_options"]:
+			try:
+				new = util.strtobool(new)
+			except ValueError:
+				await client.send_message(message.channel, "Invalid option.")
+				return
+			serverconfig[message.server.id]["extra_options"][option] = new
+			await client.send_message(message.channel, f"Server option **{option}** has been set to **{new}**.")
+	await save_server_config()
 	
 @commands.register("sankaku", help="Retrieves image(s) from Sankaku using specified tags.", syntax=f"(tags)")
 async def cmd_sankaku(message):
