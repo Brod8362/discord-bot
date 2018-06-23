@@ -56,14 +56,6 @@ with open("serverdata.yml", "r") as stream:
 p = config["prefix"]
 adminid = config["adminid"]
 
-
-#loading opus for voice functionality
-if not discord.opus.is_loaded():
-	logger.info("opus dll not loaded, loading now")
-	opusdll="C:/Users/Blake/Documents/Actual Documents/discord.py-async/discord/bin/libopus-0.x64.dll" #path to opus dll
-	dicord.opus.load_opus(opusdll)
-	logger.info("opsu dll loaded successfully.")
-
 #for getting information from users
 async def get_user(id):
 	id = str(id)
