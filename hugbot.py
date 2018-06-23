@@ -300,7 +300,7 @@ async def cmd_stop(message):
 async def cmd_invite(message):
 	await client.send_message(message.channel, f"https://discordapp.com/oauth2/authorize?&client_id={client.user.id}&scope=bot&permissions=0")
 
-@commands.register("configure")
+@commands.register("configure", admin=True)
 async def cmd_configure(message):
 	await upgrade_server_config(message.server.id)
 	try:
@@ -525,8 +525,9 @@ async def on_ready():
 		logger.info("Admin ID set to auto, defaulting to bot owner.")
 		global adminid
 		adminid = AppInfo.owner.id
-		return
-
+	for x in serverconfig:
+		await upgrade_server_config(x)
+	logger.info("All server configs are up to date.")
 
 
 

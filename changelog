@@ -21,4 +21,6 @@
 2018-06-23 
 	- Nadeko logging is now able to be enabled/disabled, for those who don't want it. 
 	- A new, rudimentary way to configure server variables has been added. It needs a facelift.
-		
+2018-06-23
+	- Fixed a bug where the bot wouldn't work in servers that didn't have a nadeko logging variable in the server config.
+	- Fixed a permissions bug with the configure command.	
