@@ -133,6 +133,21 @@ async def upgrade_server_config(server): #this is only used for updating older c
 		serverconfig[server]["extra_options"]["nadeko_logging"] = 0
 	await save_server_config()
 	
+
+async def check_for_keys(message): #used to check for watch keys in messages
+	content = message.content #key watching
+	try:
+		if serverconfig[message.server.id]["keys"]:
+			keys_escaped = "|".join(serverconfig[message.server.id]["keys"])
+			content = re.sub(f"((?:{keys_escaped})+)", r"**\1**", content, flags=re.IGNORECASE)
+		if content != message.content:
+			embed = await embed_gen(title=f"Keyword Detected in {message.channel.name}", author=message.author, footer_author=True, footer_author_id=True, desc=content)
+			await client.send_message(client.get_channel(serverconfig[message.server.id]["log_channel"]), embed=embed)
+	except:
+			await client.send_message(client.get_channel(serverconfig[message.server.id]["log_channel"]), f"big ouchie! \n ```{traceback.format_exc()}```")
+			traceback.print_exc()
+
+
 class CommandRegistry:
 	def __init__(self, prefix):
 		self.commands = {}
@@ -186,6 +201,10 @@ class CommandRegistry:
 
 commands = CommandRegistry(p) #this is the prefix 
 
+@client.event
+async def on_message_edit(before, after):
+	await check_for_keys(after)
+
 
 @client.event
 async def on_message(message):
@@ -206,19 +225,10 @@ async def on_message(message):
 				embd = await embed_gen(title="Quote Deleted", desc=f"**{message.author.mention}** deleted quote **{id}**", color=0xFF0000, author=message.author, footer_author=True, footer_author_id=True)
 				channelset = message.server.get_channel(serverconfig[message.server.id]["log_channel"])
 				await client.send_message(channelset, embed=embd)
+	
 
-	content = message.content #key watching
-	try:
-		if serverconfig[message.server.id]["keys"]:
-			keys_escaped = "|".join(serverconfig[message.server.id]["keys"])
-			content = re.sub(f"((?:{keys_escaped})+)", r"**\1**", content, flags=re.IGNORECASE)
-		if content != message.content:
-			embed = await embed_gen(title=f"Keyword Detected in {message.channel.name}", author=message.author, footer_author=True, footer_author_id=True, desc=content)
-			await client.send_message(client.get_channel(serverconfig[message.server.id]["log_channel"]), embed=embed)
-	except:
-			await client.send_message(client.get_channel(serverconfig[message.server.id]["log_channel"]), f"big ouchie! \n ```{traceback.format_exc()}```")
-			traceback.print_exc()
-
+	await check_for_keys(message) #key watching
+	
 	try:
 		cmd = commands.get(message.content.split()[0])
 	except IndexError:

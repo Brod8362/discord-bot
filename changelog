@@ -26,3 +26,5 @@
 	- Fixed a permissions bug with the configure command.
 2018-06-23
 	- Removed a bit of voice-related code that did literally nothing.	
+2018-06-28
+	- Keys are now detected with message edits. 
