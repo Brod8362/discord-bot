@@ -511,6 +511,10 @@ async def cmd_dbupdate(message):
 	await upgrade_server_config(message.server.id)
 	await client.send_message(message.channel, "The data file for this server has been updated.")
 
+@commands.register("github", help="Provides a link to the github repo for the bot source code.")
+async def cmd_github(message):
+	await client.send_message(message.channel, "Here's a link to the Github repository for this bot: https://github.com/Brod8362/discord-bot")
+
 #this always needs to be at the end, dont forget retard		
 @client.event
 async def on_ready():
