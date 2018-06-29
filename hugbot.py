@@ -426,47 +426,6 @@ async def cmd_servers(message):
 #footer_content=f"{str(len(client.servers))} servers",footer_icon_url=None)
 	await client.send_message(message.channel, embed=embd)
 	
-@commands.register("sosad", help="Quickly make a 'so sad' meme.")
-async def cmd_sosad(message):
-	try:
-		sourceurl = message.attachments[0]["url"]
-	except IndexError:
-		await client.send_message(message.channel, "An image could not be found. Make sure it's attached to your message, and isn't a link to an image.")
-		return
-	sourcedimensions = (message.attachments[0]["width"], message.attachments[0]["height"])
-	source = requests.get(sourceurl)
-	source = io.BytesIO(source.content)
-	source = Image.open(source)
-	sosad = Image.open("resources/sosad.jpg")
-	ratio = sosad.height/sosad.width
-	sosad = sosad.resize((source.width, math.ceil(source.width*ratio)))
-	new_size = (source.width, source.height+sosad.height)
-	newimage = Image.new("RGB", new_size)
-	newimage.paste(source)
-	newimage.paste(sosad, (0, source.height))
-	newimage.save("resources/temp.jpg")
-	await client.send_file(message.channel, fp="resources/temp.jpg", content="This is ***SO SAD*** can we hit ***50*** likes?!??!")
-
-#some comment lines
-#all server-related data is going to be stored in a dict of lists (or strings) that has all the info one could want stored - keywords, nsfw channels, 
-
-
-@commands.register("keywatch", help="Watch messages for a specific and log to a specified channel.", admin=True, syntax="(watch keyword)")
-async def cmd_keywatch(message):
-	try:
-		if serverconfig[message.server.id] == None:
-			pass
-	except KeyError:
-		await create_server_config(message.server.id)
-	key = message.content.split(" ", 1)[1]
-	try:
-		re.compile(key)
-	except:
-		await client.send_message(message.channel, "Invalid Regular Expression.")
-		return	
-	serverconfig[message.server.id]["keys"].add(key)
-	await client.send_message(message.channel, f"Added {key} to server keywords.")
-	await save_server_config()
 
 @commands.register("logchannel", help="Sets the current channel as the log channel.", admin=True)
 async def cmd_logchannel(message):
@@ -482,30 +441,49 @@ async def cmd_8ball(message):
 	choice = random.choice(random_choices)
 	await client.send_message(message.channel, choice)
 
-@commands.register("keylist", help="List all watch keywords for this server.", admin=True)
-async def cmd_keylist(message):
-	string = ""
-	for x in serverconfig[message.server.id]["keys"]:
-		string += f"`{x}`, "
-	await client.send_message(message.channel, string)
-
-@commands.register("keyclear", help="Clears all server watch keys.", admin=True)
-async def cmd_keyclear(message):
-	serverconfig[message.server.id]["keys"] = set()
-	await client.send_message(message.channel, "All server keys cleared.")
-	await save_server_config()
-
-@commands.register("keydel", help="Delete a server keyword.", admin=True, syntax="(existing keyword)")
-async def cmd_keyclear(message):
-	key = message.content.split(" ", 1)[1]
+@commands.register("keys", help="Access functions relating to server keys.", syntax="(add|del|list|clear|help) (key or NONE)", admin=True)
+async def cmd_keys(message):
 	try:
-		serverconfig[message.server.id]["keys"].remove(key)
+		cmd, option, args = message.content.split(" ", 2)	
 	except:
-		await client.send_message(message.channel, "That key isn't in the server keywords")
-		return
-	await client.send_message(message.channel, f"{key} has been removed from server keywords.")	
-	await save_server_config()
-
+		try:
+			cmd, option = message.content.split(" ", 1)
+		except:
+			option = None
+	if option == "add":
+		try:
+			if serverconfig[message.server.id] == None:
+				pass
+		except KeyError:
+			await create_server_config(message.server.id)
+		try:
+			re.compile(args)
+		except:
+			await client.send_message(message.channel, "Invalid Regular Expression.")
+			return	
+		serverconfig[message.server.id]["keys"].add(args)
+		await client.send_message(message.channel, f"Added {args} to server keywords.")
+		await save_server_config()
+	elif option == "remove" or option == "del":
+		try:
+			serverconfig[message.server.id]["keys"].remove(args)
+		except:
+			await client.send_message(message.channel, "That key isn't in the server keywords")
+			return
+		await client.send_message(message.channel, f"{args} has been removed from server keywords.")	
+		await save_server_config()
+	elif option == "list":
+		string = ""
+		for x in serverconfig[message.server.id]["keys"]:
+			string += f"`{x}`, "
+		await client.send_message(message.channel, string)
+	elif option == "clear":
+		serverconfig[message.server.id]["keys"] = set()
+		await client.send_message(message.channel, "All server keys cleared.")
+		await save_server_config()
+	elif option == None or option == "help":
+		await client.send_message(message.channel, "Available options: `add`, `del`, `list`, `clear`, `help`") 
+	
 @commands.register("dbupdate", help="Update the server's data file. Useful if you're having issues with newer commands.", admin=True)
 async def cmd_dbupdate(message):
 	await upgrade_server_config(message.server.id)
@@ -514,6 +492,8 @@ async def cmd_dbupdate(message):
 @commands.register("github", help="Provides a link to the github repo for the bot source code.")
 async def cmd_github(message):
 	await client.send_message(message.channel, "Here's a link to the Github repository for this bot: https://github.com/Brod8362/discord-bot")
+
+
 
 #this always needs to be at the end, dont forget retard		
 @client.event

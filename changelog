@@ -29,4 +29,6 @@
 2018-06-28
 	- Keys are now detected with message edits.
 2018-06-28
-	- Command added for accessing the github repo for the bot. 
+	- Command added for accessing the github repo for the bot.
+2018-06-29
+	- Key related commands are now all under one single command. 
