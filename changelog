@@ -32,3 +32,6 @@
 	- Command added for accessing the github repo for the bot.
 2018-06-29
 	- Key related commands are now all under one single command. 
+2018-07-19
+	- New exception handler. 
+	- New way for searching for users by ID, name, nickname, or direct mention. 

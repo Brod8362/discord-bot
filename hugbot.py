@@ -19,7 +19,7 @@ from PIL import Image #must be installed
 import math
 import os.path
 from distutils import util
-
+import functools
 
 #some global variables
 currentvoice = {}	#this is used in voice commands
@@ -148,6 +148,17 @@ async def check_for_keys(message): #used to check for watch keys in messages
 			traceback.print_exc()
 
 
+#only works if the first argument of the function it wraps is the message
+def handle_exceptions(f):
+	@functools.wraps(f)
+	async def inner(message, *args, **kwargs):
+		try:
+			return await f(message, *args, **kwargs)
+		except:
+			await client.send_message(message.channel, f"big ouchie!\n```\n{traceback.format_exc()}\n```")
+	return inner
+
+
 class CommandRegistry:
 	def __init__(self, prefix):
 		self.commands = {}
@@ -200,6 +211,10 @@ class CommandRegistry:
 			return "regular"
 
 commands = CommandRegistry(p) #this is the prefix 
+
+
+
+
 
 @client.event
 async def on_message_edit(before, after):
@@ -392,8 +407,10 @@ async def cmd_nsfw(message):
 	else:
 		await client.send_message(message.channel, "Operation cancelled.")
 	await save_server_config()
-	
+
+
 @commands.register("uinfo", help="Find various information about a user.", syntax="(userid or NONE)")
+@handle_exceptions
 async def cmd_uinfo(message):
 	try:
 		command, msg = message.content.split(" ", 1)
@@ -401,17 +418,16 @@ async def cmd_uinfo(message):
 		usr = message.author
 	else:
 		try:
-			usr = await get_user(msg)
+			usr = await find(message, term=msg)
 		except:
-			print("exception happened")
-		else:
 			pass
-	if not message.mentions == []:
-		usr = message.mentions[0]
+	if usr is None:
+		await client.send_message(message.channel, "No user found.")
+		return
 	embd = await embed_gen(desc=f"**Name:** {usr.name}\n**Discriminator:** {usr.discriminator}\n**Account Creation Date:** {usr.created_at}\n**Nickname:** {usr.display_name}\n**Snowflake ID:** {usr.id}\n**Joined On:** {usr.joined_at}", type="info")
 	await client.send_message(message.channel, embed=embd)
 	
-@commands.register("sinfo", help="Find information about the server the command is run in.")
+@commands.register("sinfo", help="Find information about the soerver the command is run in.")
 async def cmd_sinfo(message):
 	server = message.server
 	embd = await embed_gen(desc=f"**Name:** {server.name}\n**Region:** {server.region}\n**Member Count:** {server.member_count}\n**Owner:** {server.owner.name}#{server.owner.discriminator}", type="info")
@@ -493,7 +509,28 @@ async def cmd_dbupdate(message):
 async def cmd_github(message):
 	await client.send_message(message.channel, "Here's a link to the Github repository for this bot: https://github.com/Brod8362/discord-bot")
 
-
+async def find(message, term=None):	
+	user = None
+	if term:
+		term = term.lower()
+	if message.mentions != []:
+		user = message.mentions[0]
+	else:
+		for member in message.server.members:
+			if term in member.name.lower():
+				user = member
+				break
+			elif term == member.id:
+				user = member
+				break
+			elif not member.nick == None:
+				if term.lower() in  member.nick.lower():
+					user = member
+					break
+	if not user:
+		return None
+	return user
+	
 
 #this always needs to be at the end, dont forget retard		
 @client.event
