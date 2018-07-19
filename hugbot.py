@@ -21,6 +21,7 @@ import os.path
 from distutils import util
 import functools
 
+
 #some global variables
 currentvoice = {}	#this is used in voice commands
 npinfo = {} # this is for ]nowplaying
@@ -121,7 +122,7 @@ async def get_content(session, search_class, site, attributes=None, limit=None, 
 async def create_server_config(serverid): #str, needs server id NOT server object
 	serverconfig[serverid] = {"keys":set(), "nsfw_channels":set(), "log_channel":None, "extra_options":{}}
 
-async def save_server_config(): 
+def save_server_config(): 
 	with open('serverdata.yml', 'w') as outfile:
 		yaml.dump(serverconfig, outfile, default_flow_style=False)
 
@@ -131,7 +132,10 @@ async def upgrade_server_config(server): #this is only used for updating older c
 		serverconfig[server]["extra_options"] = {}
 	if not "nadeko_logging" in serverconfig[server]["extra_options"]:
 		serverconfig[server]["extra_options"]["nadeko_logging"] = 0
-	await save_server_config()
+	if not "user_stats" in serverconfig[server]:
+		serverconfig[server]["user_stats"] = {}
+	save_server_config()
+	
 	
 
 async def check_for_keys(message): #used to check for watch keys in messages
@@ -146,6 +150,14 @@ async def check_for_keys(message): #used to check for watch keys in messages
 	except:
 			await client.send_message(client.get_channel(serverconfig[message.server.id]["log_channel"]), f"big ouchie! \n ```{traceback.format_exc()}```")
 			traceback.print_exc()
+
+
+async def add_to_msg_count(serverid, userid):
+	try:
+		serverconfig[serverid]["user_stats"][userid] += 1
+	except KeyError:
+		serverconfig[serverid]["user_stats"][userid] = 1
+		
 
 
 #only works if the first argument of the function it wraps is the message
@@ -225,6 +237,8 @@ async def on_message_edit(before, after):
 async def on_message(message):
 	if message.author.bot:
 		return
+	await add_to_msg_count(message.server.id, message.author.id)
+
 	if not message.server.id in serverconfig:
 		await create_server_config(message.server.id)
 	if serverconfig[message.server.id]["extra_options"]["nadeko_logging"] == 1:
@@ -336,7 +350,7 @@ async def cmd_configure(message):
 				return
 			serverconfig[message.server.id]["extra_options"][option] = new
 			await client.send_message(message.channel, f"Server option **{option}** has been set to **{new}**.")
-	await save_server_config()
+	save_server_config()
 	
 @commands.register("sankaku", help="Retrieves image(s) from Sankaku using specified tags.", syntax=f"(tags)")
 async def cmd_sankaku(message):
@@ -406,7 +420,7 @@ async def cmd_nsfw(message):
 			serverconfig[message.server.id]["nsfw_channels"].add(message.channel.id)
 	else:
 		await client.send_message(message.channel, "Operation cancelled.")
-	await save_server_config()
+	save_server_config()
 
 
 @commands.register("uinfo", help="Find various information about a user.", syntax="(userid or NONE)")
@@ -441,7 +455,19 @@ async def cmd_servers(message):
 	embd = await embed_gen(title=f"Servers [{len(client.servers)}]", desc=string)
 #footer_content=f"{str(len(client.servers))} servers",footer_icon_url=None)
 	await client.send_message(message.channel, embed=embd)
-	
+	try:
+		command, msg = message.content.split(" ", 1)
+	except ValueError:
+		usr = message.author
+	else:
+		try:
+			usr = await find(message, term=msg)
+		except:
+			pass
+	if usr is None:
+		await client.send_message(message.channel, "No user found.")
+		return
+
 
 @commands.register("logchannel", help="Sets the current channel as the log channel.", admin=True)
 async def cmd_logchannel(message):
@@ -449,7 +475,7 @@ async def cmd_logchannel(message):
 		await create_server_config(message.server.id)
 	serverconfig[message.server.id]["log_channel"] = message.channel.id
 	await client.send_message(message.channel, f"Log channel has been set to {message.channel.mention}")
-	await save_server_config()
+	save_server_config()
 
 @commands.register("8ball", help="Ask the all-seeing 8 ball a question.")
 async def cmd_8ball(message):
@@ -479,7 +505,7 @@ async def cmd_keys(message):
 			return	
 		serverconfig[message.server.id]["keys"].add(args)
 		await client.send_message(message.channel, f"Added {args} to server keywords.")
-		await save_server_config()
+		save_server_config()
 	elif option == "remove" or option == "del":
 		try:
 			serverconfig[message.server.id]["keys"].remove(args)
@@ -487,7 +513,7 @@ async def cmd_keys(message):
 			await client.send_message(message.channel, "That key isn't in the server keywords")
 			return
 		await client.send_message(message.channel, f"{args} has been removed from server keywords.")	
-		await save_server_config()
+		save_server_config()
 	elif option == "list":
 		string = ""
 		for x in serverconfig[message.server.id]["keys"]:
@@ -496,7 +522,7 @@ async def cmd_keys(message):
 	elif option == "clear":
 		serverconfig[message.server.id]["keys"] = set()
 		await client.send_message(message.channel, "All server keys cleared.")
-		await save_server_config()
+		save_server_config()
 	elif option == None or option == "help":
 		await client.send_message(message.channel, "Available options: `add`, `del`, `list`, `clear`, `help`") 
 	
@@ -530,7 +556,34 @@ async def find(message, term=None):
 	if not user:
 		return None
 	return user
+
 	
+@commands.register("stats")
+@handle_exceptions
+async def cmd_stats(message):
+	try:
+		command, msg = message.content.split(" ", 1)
+	except ValueError:
+		usr = message.author
+	else:
+		try:
+			usr = await find(message, term=msg)
+		except:
+			pass
+	if usr is None:
+		await client.send_message(message.channel, "No user found.")
+		return
+	try:
+		await client.send_message(message.channel, f"**Stats for {usr.name}**\n Messages Sent: {serverconfig[message.server.id]['user_stats'][usr.id]}")
+	except KeyError:
+		await client.send_message(message.channel, "No information found for that user.")
+
+async def auto_save():
+	while True:
+		await asyncio.sleep(300)
+		logger.info("Server configs saved")
+		save_server_config()
+		
 
 #this always needs to be at the end, dont forget retard		
 @client.event
@@ -551,6 +604,7 @@ async def on_ready():
 	for x in serverconfig:
 		await upgrade_server_config(x)
 	logger.info("All server configs are up to date.")
+	await auto_save()
 
 
 
