@@ -37,3 +37,5 @@
 	- New way for searching for users by ID, name, nickname, or direct mention. 
 2018-07-19
 	- Very basic message counting implementation. 
+2018-07-19
+	- Message stats, including reactions given, recieved, and images sent. Fixed a bug.

@@ -94,7 +94,7 @@ async def embed_gen(title=None, desc=None, color=0x000000, author=None, footer_c
 		if footer_content != None:
 			embed.set_footer(text=footer_content, icon_url=footer_icon_url)
 	if image_url != None:
-		embed.set_image(image_url)
+		embed.set_image(url=image_url)
 
 		
 	return embed
@@ -134,7 +134,16 @@ async def upgrade_server_config(server): #this is only used for updating older c
 		serverconfig[server]["extra_options"]["nadeko_logging"] = 0
 	if not "user_stats" in serverconfig[server]:
 		serverconfig[server]["user_stats"] = {}
+	if not "messages" in serverconfig[server]["user_stats"]:
+		serverconfig[server]["user_stats"]["messages"] = {}
+	if not "images" in serverconfig[server]["user_stats"]:
+		serverconfig[server]["user_stats"]["images"] = {}
+	if not "reactions_rx" in serverconfig[server]["user_stats"]:
+		serverconfig[server]["user_stats"]["reactions_rx"] = {}
+	if not "reactions_tx" in serverconfig[server]["user_stats"]:
+		serverconfig[server]["user_stats"]["reactions_tx"] = {}
 	save_server_config()
+
 	
 	
 
@@ -152,13 +161,36 @@ async def check_for_keys(message): #used to check for watch keys in messages
 			traceback.print_exc()
 
 
-async def add_to_msg_count(serverid, userid):
+async def add_to_msg_count(message):
+	userid = message.author.id
+	serverid = message.server.id
 	try:
-		serverconfig[serverid]["user_stats"][userid] += 1
+		serverconfig[serverid]["user_stats"]["messages"][userid] += 1
 	except KeyError:
-		serverconfig[serverid]["user_stats"][userid] = 1
+		serverconfig[serverid]["user_stats"]["messages"][userid] = 1
+		serverconfig[serverid]["user_stats"]["images"][userid] = 0
+		serverconfig[serverid]["user_stats"]["reactions_rx"][userid] = 0
+		serverconfig[serverid]["user_stats"]["reactions_tx"][userid] = 0
+ 
+	if message.attachments:
+		try:
+			serverconfig[serverid]["user_stats"]["images"][userid] += 1
+		except KeyError:
+			serverconfig[serverid]["user_stats"]["images"][userid] = 1
 		
-
+async def add_to_reaction_count(user, message, rx=False): #rx as in recieve, think radio transmission, and yes i know it's a terrible name but i literally do not care
+	serverid = message.server.id
+	userid = user.id
+	if rx:
+		try:
+			serverconfig[serverid]["user_stats"]["reactions_rx"][userid] += 1
+		except KeyError:
+			serverconfig[serverid]["user_stats"]["reactions_rx"][userid] = 1
+	else:
+		try:
+			serverconfig[serverid]["user_stats"]["reactions_tx"][userid] += 1
+		except KeyError:
+			serverconfig[serverid]["user_stats"]["reactions_tx"][userid] = 1
 
 #only works if the first argument of the function it wraps is the message
 def handle_exceptions(f):
@@ -225,7 +257,13 @@ class CommandRegistry:
 commands = CommandRegistry(p) #this is the prefix 
 
 
+@client.event
+async def on_reaction_add(reaction, user):
+	await add_to_reaction_count(user, reaction.message)
+	await add_to_reaction_count(reaction.message.author, reaction.message, rx=True)
 
+
+@client.event
 
 
 @client.event
@@ -237,7 +275,7 @@ async def on_message_edit(before, after):
 async def on_message(message):
 	if message.author.bot:
 		return
-	await add_to_msg_count(message.server.id, message.author.id)
+	await add_to_msg_count(message)
 
 	if not message.server.id in serverconfig:
 		await create_server_config(message.server.id)
@@ -315,6 +353,7 @@ async def cmd_stop(message):
 		if input.content.lower() == "y":
 			#await client.send_message(message.channel,"**Shutting down.**")
 			embd = await embed_gen(desc="Shutting down.", type="info")
+			save_server_config()
 			await client.send_message(message.channel, embed = embd)
 			await client.close()
 			sys.exit()
@@ -323,6 +362,7 @@ async def cmd_stop(message):
 			await client.send_message(message.channel, embed=embd)
 	if arg == "f":
 		await client.add_reaction(message, "\N{REGIONAL INDICATOR SYMBOL LETTER K}")
+		save_server_config()
 		await client.close()
 		sys.exit()
 		return
@@ -574,7 +614,13 @@ async def cmd_stats(message):
 		await client.send_message(message.channel, "No user found.")
 		return
 	try:
-		await client.send_message(message.channel, f"**Stats for {usr.name}**\n Messages Sent: {serverconfig[message.server.id]['user_stats'][usr.id]}")
+		embed = await embed_gen(title=f"User stats for {usr.name}")
+		embed.set_thumbnail(url=usr.avatar_url)
+		embed.add_field(name="Messages Sent", value=serverconfig[message.server.id]["user_stats"]["messages"][usr.id])
+		embed.add_field(name="Images/Attachments Sent", value=serverconfig[message.server.id]["user_stats"]["images"][usr.id])
+		embed.add_field(name="Reactions Recieved", value=serverconfig[message.server.id]["user_stats"]["reactions_rx"][usr.id])
+		embed.add_field(name="Reactions Given", value=serverconfig[message.server.id]["user_stats"]["reactions_tx"][usr.id])
+		await client.send_message(message.channel, embed=embed)
 	except KeyError:
 		await client.send_message(message.channel, "No information found for that user.")
 
