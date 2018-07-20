@@ -1,3 +1,4 @@
 adminid: "auto"
 prefix: "b["
 token: ""
+log_all_messages: False

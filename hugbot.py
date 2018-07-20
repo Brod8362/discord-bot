@@ -23,15 +23,9 @@ import functools
 
 
 #some global variables
-currentvoice = {}	#this is used in voice commands
-npinfo = {} # this is for ]nowplaying
-playqueue_by_server = {} #this is for queueing shit 
 p = "[" # this is the prefix the bot will use to respond to commands
 genericlist = []
-#voiceid = str(message.author.id+str(message.server.id))
-#blacklistdir = "C:/Users/Blake/Documents/Actual Documents/Discord Bot/blacklist.txt" #directory for blacklist file, if not present blacklist is ersaed on reboot
-#blacklist = set(line.strip() for line in open(blacklistdir)) #loads blcaklist into set blacklist.
-#variables for storage n shit
+#variables for storage
 
 serverconfig = {}
 
@@ -192,6 +186,10 @@ async def add_to_reaction_count(user, message, rx=False): #rx as in recieve, thi
 		except KeyError:
 			serverconfig[serverid]["user_stats"]["reactions_tx"][userid] = 1
 
+async def log_message(message):
+	logger.info(f"({message.server.name}) ({message.channel.name}) | {message.author.name}: {message.content}")
+
+
 #only works if the first argument of the function it wraps is the message
 def handle_exceptions(f):
 	@functools.wraps(f)
@@ -273,10 +271,11 @@ async def on_message_edit(before, after):
 
 @client.event
 async def on_message(message):
+	if config["log_all_messages"]:
+		await log_message(message)
 	if message.author.bot:
 		return
 	await add_to_msg_count(message)
-
 	if not message.server.id in serverconfig:
 		await create_server_config(message.server.id)
 	if serverconfig[message.server.id]["extra_options"]["nadeko_logging"] == 1:
