@@ -115,6 +115,7 @@ async def get_content(session, search_class, site, attributes=None, limit=None, 
 
 async def create_server_config(serverid): #str, needs server id NOT server object
 	serverconfig[serverid] = {"keys":set(), "nsfw_channels":set(), "log_channel":None, "extra_options":{}}
+	await upgrade_server_config(serverid)
 
 def save_server_config(): 
 	with open('serverdata.yml', 'w') as outfile:
@@ -275,9 +276,9 @@ async def on_message(message):
 		await log_message(message)
 	if message.author.bot:
 		return
-	await add_to_msg_count(message)
 	if not message.server.id in serverconfig:
 		await create_server_config(message.server.id)
+	await add_to_msg_count(message)
 	if serverconfig[message.server.id]["extra_options"]["nadeko_logging"] == 1:
 		if message.content.startswith(".. "):
 			cmd, key, content = message.content.split(" ", 2)
@@ -578,17 +579,17 @@ async def find(message, term=None):
 	user = None
 	if term:
 		term = term.lower()
-	if message.mentions != []:
+	if message.mentions != []: #mentions
 		user = message.mentions[0]
 	else:
-		for member in message.server.members:
-			if term in member.name.lower():
+		for member in message.server.members: #for every member in the server,
+			if term in member.name.lower(): #check username
 				user = member
 				break
-			elif term == member.id:
+			elif term == member.id: #check snowflake ID
 				user = member
 				break
-			elif not member.nick == None:
+			elif not member.nick == None: #check nickname
 				if term.lower() in  member.nick.lower():
 					user = member
 					break
