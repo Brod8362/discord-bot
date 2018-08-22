@@ -484,7 +484,6 @@ async def cmd_nsfw(message):
 
 
 @commands.register("uinfo", help="Find various information about a user.", syntax="(userid or NONE)")
-@handle_exceptions
 async def cmd_uinfo(message):
 	try:
 		command, msg = message.content.split(" ", 1)
@@ -575,9 +574,10 @@ async def cmd_keys(message):
 		await client.send_message(message.channel, f"{args} has been removed from server keywords.")	
 		save_server_config()
 	elif option == "list":
-		string = ""
-		for x in serverconfig[message.server.id]["keys"]:
-			string += f"`{x}`, "
+		formatted_keys = map(lambda x: f"`{x}`" , serverconfig[message.server.id]["keys"])
+		string = ", ".join(formatted_keys)
+		if not string:
+			string = "There are no watch keys."
 		await client.send_message(message.channel, string)
 	elif option == "clear":
 		serverconfig[message.server.id]["keys"] = set()
@@ -649,9 +649,10 @@ async def cmd_watch(message):
 		await client.send_message(message.channel, f"{args} has been removed from the watched users.")	
 		save_server_config()
 	elif option == "list":
-		string = ""
-		for x in serverconfig[message.server.id]["watched_users"]:
-			string += f"<@{x}>, "
+		formatted_keys = map(lambda x: f"<@{x}>" , serverconfig[message.server.id]["watched_users"])
+		string = ", ".join(formatted_keys)
+		if not string:
+			string = "There are no watched users."
 		await client.send_message(message.channel, string)
 	elif option == "clear":
 		serverconfig[message.server.id]["keys"] = set()
@@ -662,7 +663,6 @@ async def cmd_watch(message):
 
 	
 @commands.register("stats")
-@handle_exceptions
 async def cmd_stats(message):
 	try:
 		command, msg = message.content.split(" ", 1)
