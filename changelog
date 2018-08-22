@@ -39,3 +39,5 @@
 	- Very basic message counting implementation. 
 2018-07-19
 	- Message stats, including reactions given, recieved, and images sent. Fixed a bug.
+2018-08-21
+	- Watched users and voice state changes.

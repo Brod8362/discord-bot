@@ -137,6 +137,10 @@ async def upgrade_server_config(server): #this is only used for updating older c
 		serverconfig[server]["user_stats"]["reactions_rx"] = {}
 	if not "reactions_tx" in serverconfig[server]["user_stats"]:
 		serverconfig[server]["user_stats"]["reactions_tx"] = {}
+	if not "watched_users" in serverconfig[server]:
+		serverconfig[server]["watched_users"] = set()
+	if not "voice_logging" in serverconfig[server]["extra_options"]:
+		serverconfig[server]["extra_options"]["voice_logging"] = 1
 	save_server_config()
 
 	
@@ -254,7 +258,7 @@ class CommandRegistry:
 			return "regular"
 
 commands = CommandRegistry(p) #this is the prefix 
-
+###START CLIENT EVENTS
 
 @client.event
 async def on_reaction_add(reaction, user):
@@ -263,6 +267,19 @@ async def on_reaction_add(reaction, user):
 
 
 @client.event
+async def on_voice_state_update(before, after):
+	if before.id in serverconfig[before.server.id]["watched_users"] and serverconfig[before.server.id]["extra_options"]["voice_logging"]: 
+		if not before.voice.voice_channel: #joining
+			embed = await embed_gen(title=f"Voice State Change", author=before, footer_author=True, footer_author_id=True, desc=f"{before.mention} joined `{after.voice.voice_channel.name}`", color=0xf4df42)
+			await client.send_message(client.get_channel(serverconfig[before.server.id]["log_channel"]), embed=embed)
+		if before.voice.voice_channel and after.voice.voice_channel: #changing channels (like on TV but much more exciting)
+			embed = await embed_gen(title=f"Voice State Change", author=before, footer_author=True, footer_author_id=True, desc=f"{before.mention} moved from `{before.voice.voice_channel.name}` to `{after.voice.voice_channel.name}`", color=0xf4df42)
+			await client.send_message(client.get_channel(serverconfig[before.server.id]["log_channel"]), embed=embed)
+		
+		elif before.voice.voice_channel: #leaving
+			embed = await embed_gen(title=f"Voice State Change", author=before, footer_author=True, footer_author_id=True, desc=f"{before.mention} left `{before.voice.voice_channel.name}`", color=0xf4df42)
+			await client.send_message(client.get_channel(serverconfig[before.server.id]["log_channel"]), embed=embed)
+
 
 
 @client.event
@@ -314,7 +331,10 @@ async def on_message(message):
 		else:
 			await client.add_reaction(message, "🚫")
 		
+### END CLIENT EVENTS
 
+
+### START COMMANDS
 @commands.register("help", help="Shows help for all available commands, or a specific command if specified.", syntax=f"(command or NONE)")
 async def cmd_help(message):
 	command = f"{p}help"
@@ -380,7 +400,7 @@ async def cmd_configure(message):
 		string = ""
 		for x in serverconfig[message.server.id]["extra_options"]:
 			string += f"**{x}**:**{serverconfig[message.server.id]['extra_options'][x]}** \n"
-			await client.send_message(message.channel, string)
+		await client.send_message(message.channel, string)
 	else:
 		if option in serverconfig[message.server.id]["extra_options"]:
 			try:
@@ -596,6 +616,49 @@ async def find(message, term=None):
 	if not user:
 		return None
 	return user
+
+
+@commands.register("watch", help="Access functions relating to watched users.", syntax="(add|del|list|clear|help) (key or NONE)", admin=True)
+async def cmd_watch(message):
+	try:
+		cmd, option, args = message.content.split(" ", 2)	
+	except:
+		try:
+			cmd, option = message.content.split(" ", 1)
+		except:
+			option = None
+	if option == "add":
+		try:
+			if serverconfig[message.server.id] == None:
+				pass
+		except KeyError:
+			await create_server_config(message.server.id)
+		member = await find(message, args)
+		if not member:
+			await client.send_message(message.channel, "User not found.")
+			return
+		serverconfig[message.server.id]["watched_users"].add(member.id)
+		await client.send_message(message.channel, f"Added {member.id} to watched users.")
+		save_server_config()
+	elif option == "remove" or option == "del":
+		try:
+			serverconfig[message.server.id]["watched_users"].remove(args)
+		except:
+			await client.send_message(message.channel, "That ID isn't in the watched users.")
+			return
+		await client.send_message(message.channel, f"{args} has been removed from the watched users.")	
+		save_server_config()
+	elif option == "list":
+		string = ""
+		for x in serverconfig[message.server.id]["watched_users"]:
+			string += f"<@{x}>, "
+		await client.send_message(message.channel, string)
+	elif option == "clear":
+		serverconfig[message.server.id]["keys"] = set()
+		await client.send_message(message.channel, "All watched users removed.")
+		save_server_config()
+	elif option == None or option == "help":
+		await client.send_message(message.channel, "Available options: `add`, `del`, `list`, `clear`, `help`") 
 
 	
 @commands.register("stats")
