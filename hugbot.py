@@ -123,7 +123,7 @@ def save_server_config():
 
 
 async def upgrade_server_config(server): #this is only used for updating older configs, and as such WILL NOT have all variables, only ones added since the initial release. 
-	if not "extra_options" in serverconfig[server]:
+	if not "extra_options" in serverconfig[server]: #to do: CLEANUP THIS NIGHTMARE
 		serverconfig[server]["extra_options"] = {}
 	if not "nadeko_logging" in serverconfig[server]["extra_options"]:
 		serverconfig[server]["extra_options"]["nadeko_logging"] = 0
@@ -497,9 +497,27 @@ async def cmd_uinfo(message):
 	if usr is None:
 		await client.send_message(message.channel, "No user found.")
 		return
-	embd = await embed_gen(desc=f"**Name:** {usr.name}\n**Discriminator:** {usr.discriminator}\n**Account Creation Date:** {usr.created_at}\n**Nickname:** {usr.display_name}\n**Snowflake ID:** {usr.id}\n**Joined On:** {usr.joined_at}", type="info")
-	await client.send_message(message.channel, embed=embd)
-	
+	embed = await embed_gen(title=f"{usr.name}#{usr.discriminator}")
+	embed.set_thumbnail(url=usr.avatar_url)
+	if not usr.id in serverconfig[message.server.id]["user_stats"]["messages"]:
+		values = ['messages', 'images', 'reactions_tx', 'reactions_rx'] 
+		for value in values:
+			serverconfig[message.server.id]["user_stats"][value][usr.id] = 0
+
+	fields = { #add fields to display here, they're done in order as shown here
+	"Nickname":usr.display_name,
+	"ID":usr.id,
+	"Joined At":usr.joined_at,
+	"Account Creation Date":usr.created_at,
+	"Messages Sent":serverconfig[message.server.id]["user_stats"]["messages"][usr.id],
+	"Images/Attachments Sent":serverconfig[message.server.id]["user_stats"]["images"][usr.id],
+	"Reactions Recieved":serverconfig[message.server.id]["user_stats"]["reactions_rx"][usr.id],
+	"Reactions Given":serverconfig[message.server.id]["user_stats"]["reactions_tx"][usr.id],
+	}
+	for entry in fields:
+		embed.add_field(name=entry, value=fields[entry])
+	await client.send_message(message.channel, embed=embed)
+		
 @commands.register("sinfo", help="Find information about the soerver the command is run in.")
 async def cmd_sinfo(message):
 	server = message.server
@@ -659,32 +677,6 @@ async def cmd_watch(message):
 		save_server_config()
 	elif option == None or option == "help":
 		await client.send_message(message.channel, "Available options: `add`, `del`, `list`, `clear`, `help`") 
-
-	
-@commands.register("stats")
-async def cmd_stats(message):
-	try:
-		command, msg = message.content.split(" ", 1)
-	except ValueError:
-		usr = message.author
-	else:
-		try:
-			usr = await find(message, term=msg)
-		except:
-			pass
-	if usr is None:
-		await client.send_message(message.channel, "No user found.")
-		return
-	try:
-		embed = await embed_gen(title=f"User stats for {usr.name}")
-		embed.set_thumbnail(url=usr.avatar_url)
-		embed.add_field(name="Messages Sent", value=serverconfig[message.server.id]["user_stats"]["messages"][usr.id])
-		embed.add_field(name="Images/Attachments Sent", value=serverconfig[message.server.id]["user_stats"]["images"][usr.id])
-		embed.add_field(name="Reactions Recieved", value=serverconfig[message.server.id]["user_stats"]["reactions_rx"][usr.id])
-		embed.add_field(name="Reactions Given", value=serverconfig[message.server.id]["user_stats"]["reactions_tx"][usr.id])
-		await client.send_message(message.channel, embed=embed)
-	except KeyError:
-		await client.send_message(message.channel, "No information found for that user.")
 
 async def auto_save():
 	while True:

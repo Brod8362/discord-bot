@@ -45,3 +45,5 @@
 	- Fix trailing commas 
 2018-08-24 
 	- Small change to user searching
+2018-08-24
+	- Merged uinfo and stats into just uinfo, also prettified it a little bit.
