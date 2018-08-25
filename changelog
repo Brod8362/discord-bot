@@ -51,3 +51,6 @@
 	- Code optimization and cleanup
 2018-08-25
 	- Updated behavior of NSFW command
+2018-08-25
+	- Visual changes to voice logging 
+	- Fixed a typo
