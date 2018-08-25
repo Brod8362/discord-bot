@@ -49,3 +49,5 @@
 	- Merged uinfo and stats into just uinfo, also prettified it a little bit.
 2018-08-24
 	- Code optimization and cleanup
+2018-08-25
+	- Updated behavior of NSFW command

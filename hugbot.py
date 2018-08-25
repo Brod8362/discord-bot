@@ -463,18 +463,19 @@ async def cmd_nsfw(message):
 		status = "On"
 	else:
 		status = "Off"
-	await client.send_message(message.channel, f"NSFW Status for channel **{message.channel.mention}** is **{status}**. Reply **on** to turn it on, **off** to turn it off, or **cancel** to cancel.")
-	choice = await client.wait_for_message(author=message.author, timeout=30)
-	if choice.content.lower() == "on":
-		await client.send_message(message.channel, f"NSFW **Enabled** in **{message.channel.mention}**")
+	choice = await client.send_message(message.channel, f"NSFW Status for channel **{message.channel.mention}** is **{status}**. React with \u274C to disable it and \u2705 to enable it.")
+	await client.add_reaction(choice, "\u274C")
+	await client.add_reaction(choice, "\u2705")
+	output = await client.wait_for_reaction(message=choice, user=message.author, timeout=30, emoji=["\u274C","\u2705"])
+	emoji = output[0].emoji
+	if emoji == "\u2705":
+		await client.edit_message(choice, new_content=f"NSFW **Enabled** in **{message.channel.mention}**")
 		if not message.channel.id in serverconfig[message.server.id]["nsfw_channels"]:
 			serverconfig[message.server.id]["nsfw_channels"].add(message.channel.id)
-	elif choice.content.lower() == "off":
-		await client.send_message(message.channel, f"NSFW **Disabled** in **{message.channel.mention}**")
+	elif emoji == "\u274C":
+		await client.edit_message(choice, new_content=f"NSFW **Disabled** in **{message.channel.mention}**")
 		if message.channel.id in serverconfig[message.server.id]["nsfw_channels"]:
 			serverconfig[message.server.id]["nsfw_channels"].add(message.channel.id)
-	else:
-		await client.send_message(message.channel, "Operation cancelled.")
 	save_server_config()
 
 
