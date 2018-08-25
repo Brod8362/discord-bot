@@ -61,7 +61,7 @@ async def get_user(id):
 	return user
 
 #lets make me a good embed
-async def embed_gen(title=None, desc=None, color=0x000000, author=None, footer_content=None, footer_icon_url=None, image_url=None, type=None, footer_author=False, footer_author_id=False): #str, str, hex, discord.User(), str, str, str, str, bool, bool
+def embed_gen(title=None, desc=None, color=0x000000, author=None, footer_content=None, footer_icon_url=None, image_url=None, type=None, footer_author=False, footer_author_id=False): #str, str, hex, discord.User(), str, str, str, str, bool, bool
 		#Some words on the types: if you specify a type, your title and color are overriden. Types are eventually going to be moved to a separate file, where you can add your own custom types. 
 	if type != None:
 		if type == "error":
@@ -93,18 +93,16 @@ async def embed_gen(title=None, desc=None, color=0x000000, author=None, footer_c
 		
 	return embed
 	
-async def check_admin(member):
+def check_admin(member):
 	return member.server_permissions.administrator
 
-async def check_bot_admin(member):
+
+def check_bot_admin(member):
 	if str(member.id) == str(adminid):
 		return True
 	return False
-
-async def get_random(max):
-	return random.randint(1,max)
 	
-async def get_content(session, search_class, site, attributes=None, limit=None, params=None): #requests.Session(), str, str, dict, int, dict
+def get_content(session, search_class, site, attributes=None, limit=None, params=None): #requests.Session(), str, str, dict, int, dict
 	page = session.get(site, params=params)
 	soup = BeautifulSoup(page.content, "html.parser")
 	results = soup.find_all(search_class, attrs=attributes, limit=limit) 
@@ -113,16 +111,16 @@ async def get_content(session, search_class, site, attributes=None, limit=None, 
 		return results[0], found
 	return results, found
 
-async def create_server_config(serverid): #str, needs server id NOT server object
+def create_server_config(serverid): #str, needs server id NOT server object
 	serverconfig[serverid] = {"keys":set(), "nsfw_channels":set(), "log_channel":None, "extra_options":{}}
-	await upgrade_server_config(serverid)
+	upgrade_server_config(serverid)
 
 def save_server_config(): 
 	with open('serverdata.yml', 'w') as outfile:
 		yaml.dump(serverconfig, outfile, default_flow_style=False)
 
 
-async def upgrade_server_config(server): #this is only used for updating older configs, and as such WILL NOT have all variables, only ones added since the initial release. 
+def upgrade_server_config(server): #this is only used for updating older configs, and as such WILL NOT have all variables, only ones added since the initial release. 
 	if not "extra_options" in serverconfig[server]: #to do: CLEANUP THIS NIGHTMARE
 		serverconfig[server]["extra_options"] = {}
 	if not "nadeko_logging" in serverconfig[server]["extra_options"]:
@@ -153,14 +151,14 @@ async def check_for_keys(message): #used to check for watch keys in messages
 			keys_escaped = "|".join(serverconfig[message.server.id]["keys"])
 			content = re.sub(f"((?:{keys_escaped})+)", r"**\1**", content, flags=re.IGNORECASE)
 		if content != message.content:
-			embed = await embed_gen(title=f"Keyword Detected in {message.channel.name}", author=message.author, footer_author=True, footer_author_id=True, desc=content)
+			embed = embed_gen(title=f"Keyword Detected in {message.channel.name}", author=message.author, footer_author=True, footer_author_id=True, desc=content)
 			await client.send_message(client.get_channel(serverconfig[message.server.id]["log_channel"]), embed=embed)
 	except:
 			await client.send_message(client.get_channel(serverconfig[message.server.id]["log_channel"]), f"big ouchie! \n ```{traceback.format_exc()}```")
 			traceback.print_exc()
 
 
-async def add_to_msg_count(message):
+def add_to_msg_count(message):
 	userid = message.author.id
 	serverid = message.server.id
 	try:
@@ -177,7 +175,7 @@ async def add_to_msg_count(message):
 		except KeyError:
 			serverconfig[serverid]["user_stats"]["images"][userid] = 1
 		
-async def add_to_reaction_count(user, message, rx=False): #rx as in recieve, think radio transmission, and yes i know it's a terrible name but i literally do not care
+def add_to_reaction_count(user, message, rx=False): #rx as in recieve, think radio transmission, and yes i know it's a terrible name but i literally do not care
 	serverid = message.server.id
 	userid = user.id
 	if rx:
@@ -191,7 +189,7 @@ async def add_to_reaction_count(user, message, rx=False): #rx as in recieve, thi
 		except KeyError:
 			serverconfig[serverid]["user_stats"]["reactions_tx"][userid] = 1
 
-async def log_message(message):
+def log_message(message):
 	logger.info(f"({message.server.name}) ({message.channel.name}) | {message.author.name}: {message.content}")
 
 
@@ -234,14 +232,14 @@ class CommandRegistry:
 			return None
 		return self.commands.get(name[len(self.prefix):])
 	
-	async def get_help(self, name, user):
-		admin = await check_admin(user)
+	def get_help(self, name, user):
+		admin = check_admin(user)
 		
 		if  not self.admin[name] and not self.sadmin[name]: #regular commands
 			return self.help[name]
 		elif admin and self.admin[name]: #for admin commands
 			return self.help[name]+" **[ADMIN]**"
-		elif await check_bot_admin(user) and self.sadmin[name]: #superadmin commands
+		elif check_bot_admin(user) and self.sadmin[name]: #superadmin commands
 			return self.help[name]+" **[BOT ADMIN]**"
 		else:
 			return None
@@ -262,22 +260,22 @@ commands = CommandRegistry(p) #this is the prefix
 
 @client.event
 async def on_reaction_add(reaction, user):
-	await add_to_reaction_count(user, reaction.message)
-	await add_to_reaction_count(reaction.message.author, reaction.message, rx=True)
+	add_to_reaction_count(user, reaction.message)
+	add_to_reaction_count(reaction.message.author, reaction.message, rx=True)
 
 
 @client.event
 async def on_voice_state_update(before, after):
 	if before.id in serverconfig[before.server.id]["watched_users"] and serverconfig[before.server.id]["extra_options"]["voice_logging"]: 
 		if not before.voice.voice_channel: #joining
-			embed = await embed_gen(title=f"Voice State Change", author=before, footer_author=True, footer_author_id=True, desc=f"{before.mention} joined `{after.voice.voice_channel.name}`", color=0xf4df42)
+			embed = embed_gen(title=f"Voice State Change", author=before, footer_author=True, footer_author_id=True, desc=f"{before.mention} joined `{after.voice.voice_channel.name}`", color=0xf4df42)
 			await client.send_message(client.get_channel(serverconfig[before.server.id]["log_channel"]), embed=embed)
 		if before.voice.voice_channel and after.voice.voice_channel: #changing channels (like on TV but much more exciting)
-			embed = await embed_gen(title=f"Voice State Change", author=before, footer_author=True, footer_author_id=True, desc=f"{before.mention} moved from `{before.voice.voice_channel.name}` to `{after.voice.voice_channel.name}`", color=0xf4df42)
+			embed = embed_gen(title=f"Voice State Change", author=before, footer_author=True, footer_author_id=True, desc=f"{before.mention} moved from `{before.voice.voice_channel.name}` to `{after.voice.voice_channel.name}`", color=0xf4df42)
 			await client.send_message(client.get_channel(serverconfig[before.server.id]["log_channel"]), embed=embed)
 		
 		elif before.voice.voice_channel: #leaving
-			embed = await embed_gen(title=f"Voice State Change", author=before, footer_author=True, footer_author_id=True, desc=f"{before.mention} left `{before.voice.voice_channel.name}`", color=0xf4df42)
+			embed = embed_gen(title=f"Voice State Change", author=before, footer_author=True, footer_author_id=True, desc=f"{before.mention} left `{before.voice.voice_channel.name}`", color=0xf4df42)
 			await client.send_message(client.get_channel(serverconfig[before.server.id]["log_channel"]), embed=embed)
 
 
@@ -290,23 +288,23 @@ async def on_message_edit(before, after):
 @client.event
 async def on_message(message):
 	if config["log_all_messages"]:
-		await log_message(message)
+		log_message(message)
 	if message.author.bot:
 		return
 	if not message.server.id in serverconfig:
-		await create_server_config(message.server.id)
-	await add_to_msg_count(message)
+		create_server_config(message.server.id)
+	add_to_msg_count(message)
 	if serverconfig[message.server.id]["extra_options"]["nadeko_logging"] == 1:
 		if message.content.startswith(".. "):
 			cmd, key, content = message.content.split(" ", 2)
-			embd = await embed_gen(title="Quote Created", desc=f"**{message.author.mention}** created quote **{key}** with content **{content}**", color=0x000000, author=message.author, footer_author=True, footer_author_id=True)
+			embd = embed_gen(title="Quote Created", desc=f"**{message.author.mention}** created quote **{key}** with content **{content}**", color=0x000000, author=message.author, footer_author=True, footer_author_id=True)
 			channelset = message.server.get_channel(serverconfig[message.server.id]["log_channel"])
 			await client.send_message(channelset, embed=embd)
 		elif message.content.startswith(".qdel "): #nadeko logging 
-			confirmation = await client.wait_for_message(author=await get_user("116275390695079945"))
+			confirmation = await client.wait_for_message(author=await get_user("116275390695079945")) #this is the nadeko bot user
 			if "deleted." in confirmation.embeds[0]["description"]:
 				cmd, id, = message.content.split(" ", 1)
-				embd = await embed_gen(title="Quote Deleted", desc=f"**{message.author.mention}** deleted quote **{id}**", color=0xFF0000, author=message.author, footer_author=True, footer_author_id=True)
+				embd = embed_gen(title="Quote Deleted", desc=f"**{message.author.mention}** deleted quote **{id}**", color=0xFF0000, author=message.author, footer_author=True, footer_author_id=True)
 				channelset = message.server.get_channel(serverconfig[message.server.id]["log_channel"])
 				await client.send_message(channelset, embed=embd)
 	
@@ -322,10 +320,10 @@ async def on_message(message):
 		if commands.get_permission(cmdname) == "regular": #for regular commands
 			await cmd(message)
 			return
-		elif commands.get_permission(cmdname) == "admin" and await check_admin(message.author): #for admin commands
+		elif commands.get_permission(cmdname) == "admin" and check_admin(message.author): #for admin commands
 			await cmd(message)
 			return
-		elif commands.get_permission(cmdname) == "sadmin" and await check_bot_admin(message.author): #for bot admin commands
+		elif commands.get_permission(cmdname) == "sadmin" and check_bot_admin(message.author): #for bot admin commands
 			await cmd(message)
 			return
 		else:
@@ -343,21 +341,21 @@ async def cmd_help(message):
 	except ValueError:
 		string = ""
 		for cmd in commands:
-			hlp = await commands.get_help(cmd, message.author)
+			hlp = commands.get_help(cmd, message.author)
 			if hlp != None:
 				string = string+f"\n**{cmd}**: {hlp}"
-		embd = await embed_gen(title="List of Commands", desc=string, color=0x000000, author=message.author)
+		embd = embed_gen(title="List of Commands", desc=string, color=0x000000, author=message.author)
 		await client.send_message(message.channel, embed=embd)
 		return
 	else:
 		try:
-				helpinfo = await commands.get_help(msg, message.author)
+				helpinfo = commands.get_help(msg, message.author)
 		except KeyError:
-			embd = await embed_gen(title="\U0000274C Error", desc="Command not found.", color=0xFF0000, author=message.author)
+			embd = embed_gen(title="\U0000274C Error", desc="Command not found.", color=0xFF0000, author=message.author)
 			await client.send_message(message.channel, embed=embd)
 			return
 		syninfo = commands.get_syntax(msg)
-		embd = await embed_gen(title=f"Help for: {msg}", desc=f"{helpinfo}\n**Syntax:**```{p}{msg} {syninfo}```", color=0x000000, author=message.author, footer_author=True)
+		embd = embed_gen(title=f"Help for: {msg}", desc=f"{helpinfo}\n**Syntax:**```{p}{msg} {syninfo}```", color=0x000000, author=message.author, footer_author=True)
 		await client.send_message(message.channel, embed=embd)
 
 @commands.register("stop", help=f"Stops the bot.", syntax=f"(f)'", bot_admin = True)
@@ -366,19 +364,19 @@ async def cmd_stop(message):
 	try:
 		command, arg = message.content.split(' ', 1)
 	except ValueError:
-		embd = await embed_gen(desc="Are you sure you want to shut down the bot? [Y/N]",type="warn")
+		embd = embed_gen(desc="Are you sure you want to shut down the bot? [Y/N]",type="warn")
 		await client.send_message(message.channel, embed=embd)
 		brod = message.author
 		input = await client.wait_for_message(timeout=10.0, author=brod)
 		if input.content.lower() == "y":
 			#await client.send_message(message.channel,"**Shutting down.**")
-			embd = await embed_gen(desc="Shutting down.", type="info")
+			embd = embed_gen(desc="Shutting down.", type="info")
 			save_server_config()
 			await client.send_message(message.channel, embed = embd)
 			await client.close()
 			sys.exit()
 		else:
-			embd = await embed_gen(desc="Shutdown cancelled", type="info")
+			embd = embed_gen(desc="Shutdown cancelled", type="info")
 			await client.send_message(message.channel, embed=embd)
 	if arg == "f":
 		await client.add_reaction(message, "\N{REGIONAL INDICATOR SYMBOL LETTER K}")
@@ -393,7 +391,7 @@ async def cmd_invite(message):
 
 @commands.register("configure", admin=True)
 async def cmd_configure(message):
-	await upgrade_server_config(message.server.id)
+	upgrade_server_config(message.server.id)
 	try:
 		cmd, option, new = message.content.split(" ", 3)
 	except:
@@ -421,17 +419,15 @@ async def cmd_sankaku(message):
 	session = requests.Session()
 	session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36',})
 	tagsraw = message.content.split(' ')
-	tagsraw.remove(f"{p}sankaku")	
+	tagsraw.remove(tagsraw[0])
 	tags = " ".join(tagsraw)
-
-	results, number_found = await get_content(session, 'span', "https://chan.sankakucomplex.com", attributes={"class":"thumb"}, params={"tags":tags, "commit":"Search"})
+	results, number_found = get_content(session, 'span', "https://chan.sankakucomplex.com", attributes={"class":"thumb"}, params={"tags":tags, "commit":"Search"})
 	if number_found == 0:
 		await client.send_message(message.channel, f"No results found for `{tags.replace(' ',', ')}`.")
 		return
-	chosen = await get_random(number_found)
-	pick = results[chosen-1].attrs['id'].replace("p","")
-	
-	image, number_found = await get_content(session, 'img', f"https://chan.sankakucomplex.com/post/show/{pick}", attributes={"id":"image"}, limit=1)
+	chosen = random.randint(1, number_found)
+	pick = results[chosen-1].attrs['id'].replace("p","")	
+	image, number_found = get_content(session, 'img', f"https://chan.sankakucomplex.com/post/show/{pick}", attributes={"id":"image"}, limit=1)
 	image_local = session.get(f"http:{image.attrs['src']}")
 	image_name, trash = image_local.url.split("/")[-1].split("?")
 	await client.send_file(message.channel, filename=image_name, fp=io.BytesIO(image_local.content), content=f"```Tags used: {tags.replace('+',', ')} \n https://chan.sankakucomplex.com/post/show/{pick}```")
@@ -446,16 +442,15 @@ async def cmd_gelbooru(message):
 	session = requests.Session()
 	session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36',})
 	tagsraw = message.content.split(' ')
-	tagsraw.remove(f"{p}gelbooru")	
+	tagsraw.remove(tagsraw[0])	
 	tags = " ".join(tagsraw)
-
-	results, number_found = await get_content(session, 'span', "https://gelbooru.com/index.php?", attributes={"class":"thumb"}, params={"tags":tags, "page":"post","s":"list"})
+	results, number_found = get_content(session, 'span', "https://gelbooru.com/index.php?", attributes={"class":"thumb"}, params={"tags":tags, "page":"post","s":"list"})
 	if number_found == 0:
 		await client.send_message(message.channel, f"No results found for {tags.replace(' ',', ')}.")
 		return
-	chosen = await get_random(number_found)
+	chosen = random.randint(1, number_found)
 	pick = results[chosen-1].attrs['id'].replace("s","")
-	image, number_found = await get_content(session, 'img', f"https://gelbooru.com/index.php?", attributes={"id":"image"}, params={"page":"post", "s":"view", "id":pick}, limit=1)
+	image, number_found = get_content(session, 'img', f"https://gelbooru.com/index.php?", attributes={"id":"image"}, params={"page":"post", "s":"view", "id":pick}, limit=1)
 	await client.send_message(message.channel, f'```Tags used: {tags.replace("+",", ")} \n https://gelbooru.com/index.php?page=post&s=view&id={pick}``` \n {image.attrs["src"]}')
 	
 	
@@ -497,7 +492,7 @@ async def cmd_uinfo(message):
 	if usr is None:
 		await client.send_message(message.channel, "No user found.")
 		return
-	embed = await embed_gen(title=f"{usr.name}#{usr.discriminator}")
+	embed = embed_gen(title=f"{usr.name}#{usr.discriminator}")
 	embed.set_thumbnail(url=usr.avatar_url)
 	if not usr.id in serverconfig[message.server.id]["user_stats"]["messages"]:
 		values = ['messages', 'images', 'reactions_tx', 'reactions_rx'] 
@@ -521,7 +516,7 @@ async def cmd_uinfo(message):
 @commands.register("sinfo", help="Find information about the soerver the command is run in.")
 async def cmd_sinfo(message):
 	server = message.server
-	embd = await embed_gen(desc=f"**Name:** {server.name}\n**Region:** {server.region}\n**Member Count:** {server.member_count}\n**Owner:** {server.owner.name}#{server.owner.discriminator}", type="info")
+	embd = embed_gen(desc=f"**Name:** {server.name}\n**Region:** {server.region}\n**Member Count:** {server.member_count}\n**Owner:** {server.owner.name}#{server.owner.discriminator}", type="info")
 	await client.send_message(message.channel, embed=embd)	
 
 @commands.register("servers", help="See all servers the bot is in.", bot_admin=True)
@@ -529,7 +524,7 @@ async def cmd_servers(message):
 	string = ""
 	for server in client.servers:
 		string += f"{server.name} \n"
-	embd = await embed_gen(title=f"Servers [{len(client.servers)}]", desc=string)
+	embd = embed_gen(title=f"Servers [{len(client.servers)}]", desc=string)
 #footer_content=f"{str(len(client.servers))} servers",footer_icon_url=None)
 	await client.send_message(message.channel, embed=embd)
 	try:
@@ -549,7 +544,7 @@ async def cmd_servers(message):
 @commands.register("logchannel", help="Sets the current channel as the log channel.", admin=True)
 async def cmd_logchannel(message):
 	if not message.server.id in serverconfig:
-		await create_server_config(message.server.id)
+		create_server_config(message.server.id)
 	serverconfig[message.server.id]["log_channel"] = message.channel.id
 	await client.send_message(message.channel, f"Log channel has been set to {message.channel.mention}")
 	save_server_config()
@@ -574,7 +569,7 @@ async def cmd_keys(message):
 			if serverconfig[message.server.id] == None:
 				pass
 		except KeyError:
-			await create_server_config(message.server.id)
+			create_server_config(message.server.id)
 		try:
 			re.compile(args)
 		except:
@@ -606,7 +601,7 @@ async def cmd_keys(message):
 	
 @commands.register("dbupdate", help="Update the server's data file. Useful if you're having issues with newer commands.", admin=True)
 async def cmd_dbupdate(message):
-	await upgrade_server_config(message.server.id)
+	upgrade_server_config(message.server.id)
 	await client.send_message(message.channel, "The data file for this server has been updated.")
 
 @commands.register("github", help="Provides a link to the github repo for the bot source code.")
@@ -649,7 +644,7 @@ async def cmd_watch(message):
 			if serverconfig[message.server.id] == None:
 				pass
 		except KeyError:
-			await create_server_config(message.server.id)
+			create_server_config(message.server.id)
 		member = await find(message, args)
 		if not member:
 			await client.send_message(message.channel, "User not found.")
@@ -678,7 +673,7 @@ async def cmd_watch(message):
 	elif option == None or option == "help":
 		await client.send_message(message.channel, "Available options: `add`, `del`, `list`, `clear`, `help`") 
 
-async def auto_save():
+async def start_auto_save():
 	while True:
 		await asyncio.sleep(300)
 		logger.info("Server configs saved")
@@ -702,9 +697,9 @@ async def on_ready():
 		global adminid
 		adminid = AppInfo.owner.id
 	for x in serverconfig:
-		await upgrade_server_config(x)
+		upgrade_server_config(x)
 	logger.info("All server configs are up to date.")
-	await auto_save()
+	await start_auto_save()
 
 
 
