@@ -43,3 +43,5 @@
 	- Watched users and voice state changes.
 2018-08-22
 	- Fix trailing commas 
+2018-08-24 
+	- Small change to user searching

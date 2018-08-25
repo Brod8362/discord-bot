@@ -609,14 +609,13 @@ async def find(message, term=None):
 			elif term == member.id: #check snowflake ID
 				user = member
 				break
-			elif not member.nick == None: #check nickname
-				if term.lower() in  member.nick.lower():
+			elif member.nick: #check nickname
+				if term in  member.nick.lower():
 					user = member
 					break
 	if not user:
 		return None
 	return user
-
 
 @commands.register("watch", help="Access functions relating to watched users.", syntax="(add|del|list|clear|help) (key or NONE)", admin=True)
 async def cmd_watch(message):
