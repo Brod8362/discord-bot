@@ -54,3 +54,5 @@
 2018-08-25
 	- Visual changes to voice logging 
 	- Fixed a typo
+2018-08-26
+	- Added a timestamp to voice activity logging

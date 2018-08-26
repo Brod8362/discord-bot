@@ -20,6 +20,7 @@ import math
 import os.path
 from distutils import util
 import functools
+import time
 
 
 #some global variables
@@ -267,15 +268,17 @@ async def on_reaction_add(reaction, user):
 @client.event
 async def on_voice_state_update(before, after):
 	if before.id in serverconfig[before.server.id]["watched_users"] and serverconfig[before.server.id]["extra_options"]["voice_logging"]: 
+		timex = time.gmtime()
+		timex = f"{timex[3]}:{timex[4]}:{timex[5]}"
 		if not before.voice.voice_channel: #joining
-			embed = embed_gen(title=f"Voice State Change", author=before, footer_author=True, footer_author_id=True, desc=f"\N{SPEAKER}\N{INBOX TRAY}{before.mention} joined `{after.voice.voice_channel.name}`", color=0xff66ff)
+			embed = embed_gen(title=f"Voice State Change {timex} GMT", author=before, footer_author=True, footer_author_id=True, desc=f"\N{SPEAKER}\N{INBOX TRAY}{before.mention} joined `{after.voice.voice_channel.name}`", color=0xff66ff)
 			await client.send_message(client.get_channel(serverconfig[before.server.id]["log_channel"]), embed=embed)
 		if before.voice.voice_channel and after.voice.voice_channel: #changing channels (like on TV but much more exciting)
-			embed = embed_gen(title=f"Voice State Change", author=before, footer_author=True, footer_author_id=True, desc=f"\N{SPEAKER}\N{TWISTED RIGHTWARDS ARROWS}{before.mention} moved from `{before.voice.voice_channel.name}` to `{after.voice.voice_channel.name}`", color=0xff66ff)
+			embed = embed_gen(title=f"Voice State Change {timex} GMT", author=before, footer_author=True, footer_author_id=True, desc=f"\N{SPEAKER}\N{TWISTED RIGHTWARDS ARROWS}{before.mention} moved from `{before.voice.voice_channel.name}` to `{after.voice.voice_channel.name}`", color=0xff66ff)
 			await client.send_message(client.get_channel(serverconfig[before.server.id]["log_channel"]), embed=embed)
 		
 		elif before.voice.voice_channel: #leaving
-			embed = embed_gen(title=f"Voice State Change", author=before, footer_author=True, footer_author_id=True, desc=f"\N{SPEAKER}\N{OUTBOX TRAY}{before.mention} left `{before.voice.voice_channel.name}`", color=0xff66ff)
+			embed = embed_gen(title=f"Voice State Change {timex} GMT", author=before, footer_author=True, footer_author_id=True, desc=f"\N{SPEAKER}\N{OUTBOX TRAY}{before.mention} left `{before.voice.voice_channel.name}`", color=0xff66ff)
 			await client.send_message(client.get_channel(serverconfig[before.server.id]["log_channel"]), embed=embed)
 
 
