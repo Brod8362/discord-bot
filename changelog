@@ -56,3 +56,5 @@
 	- Fixed a typo
 2018-08-26
 	- Added a timestamp to voice activity logging
+2018-08-26
+	- Better voice timestamp formatting
