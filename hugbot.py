@@ -673,8 +673,15 @@ async def cmd_watch(message):
 		serverconfig[message.server.id]["keys"] = set()
 		await client.send_message(message.channel, "All watched users removed.")
 		save_server_config()
-	elif option == None or option == "help":
+	elif option == "help":
 		await client.send_message(message.channel, "Available options: `add`, `del`, `list`, `clear`, `help`") 
+	else:
+		member = await find(message, option)
+		if not member:
+			await client.send_message(message.channel, "Available options: `add`, `del`, `list`, `clear`, `help`")
+		else:
+			serverconfig[message.server.id]["watched_users"].add(member.id)
+			await client.send_message(message.channel, f"Added {member.id} to watched users.") 
 
 async def start_auto_save():
 	while True:

@@ -60,3 +60,5 @@
 	- Better voice timestamp formatting
 2018-08-28
 	- Fixed a small bug where the minutes section in voice logging was actually the month
+2018-08-31
+	- Quick, rudimentary patch to allow for a more intuitive way to add voice watch users.
