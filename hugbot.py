@@ -203,7 +203,7 @@ async def check_for_role_pings(message, deleted=False):
 				embed = embed_gen(title=f"{delstring}Role ping in #{message.channel.name}", author=message.author, footer_author=True, footer_author_id=True, desc=message.content)
 				await client.send_message(client.get_channel(serverconfig[message.server.id]["log_channel"]), embed=embed)
 
-async def reactify(message, choices, question, show_return=False): #choices is a dict of things, where the key is what the bot shows and the value is what it returns when the option is picked
+async def reactify(message, question, choices=None, show_return=False, boolean=False): #choices is a dict of things, where the key is what the bot shows and the value is what it returns when the option is picked
 	numdict = {}
 	string = ""
 	def num_to_emoji(n):
@@ -213,6 +213,15 @@ async def reactify(message, choices, question, show_return=False): #choices is a
 	def emoji_to_num(e):
 		return e.encode("unicode_escape").decode("ascii")[0]
 	i = 1
+	if boolean: ##true/false options
+		ask = await client.send_message(message.channel, embed=embed_gen(desc=question))
+		await client.add_reaction(ask, "\N{WHITE HEAVY CHECK MARK}")
+		await client.add_reaction(ask, "\N{NO ENTRY SIGN}")
+		reply = await client.wait_for_reaction(message=ask, user=message.author, timeout=30)
+		if reply.reaction.emoji == "\N{WHITE HEAVY CHECK MARK}":
+			return ask, True
+		else:
+			return ask, False
 	for x in choices:
 		numdict[i] = x 
 		if show_return:
@@ -417,30 +426,13 @@ async def cmd_help(message):
 
 @commands.register("stop", help=f"Stops the bot.", syntax=f"(f)'", bot_admin = True)
 async def cmd_stop(message):
-	command = f"{p}stop"
-	try:
-		command, arg = message.content.split(' ', 1)
-	except ValueError:
-		embd = embed_gen(desc="Are you sure you want to shut down the bot? [Y/N]",type="warn")
-		await client.send_message(message.channel, embed=embd)
-		brod = message.author
-		input = await client.wait_for_message(timeout=10.0, author=brod)
-		if input.content.lower() == "y":
-			#await client.send_message(message.channel,"**Shutting down.**")
-			embd = embed_gen(desc="Shutting down.", type="info")
+
+		ask, output = await reactify(message, "Do you want to shut down the bot?", boolean=True)
+		if output:
 			save_server_config()
-			await client.send_message(message.channel, embed = embd)
+			await client.add_reaction(ask, "\N{REGIONAL INDICATOR SYMBOL LETTER K}")
 			await client.close()
 			sys.exit()
-		else:
-			embd = embed_gen(desc="Shutdown cancelled", type="info")
-			await client.send_message(message.channel, embed=embd)
-	if arg == "f":
-		await client.add_reaction(message, "\N{REGIONAL INDICATOR SYMBOL LETTER K}")
-		save_server_config()
-		await client.close()
-		sys.exit()
-		return
 
 @commands.register("invite", help="Creates an invite link for the bot.", syntax=f"", bot_admin=True)
 async def cmd_invite(message):
@@ -753,7 +745,7 @@ async def cmd_rw(message):
 		for role in message.server.roles:
 			if role.mentionable and not role.id in serverconfig[message.server.id]["watched_roles"]:
 				roledict[f"<@&{role.id}>"] = role.id
-		roleid, ask = await reactify(message, roledict, "Which role do you want to add?", show_return=True)
+		roleid, ask = await reactify(message, "Which role do you want to add?", choices=roledict, show_return=True)
 		serverconfig[message.server.id]["watched_roles"].add(roleid)
 		await client.edit_message(ask, embed=embed_gen(desc=f"Added <@&{roleid}> to the role watch list."))
 		save_server_config()
@@ -761,7 +753,7 @@ async def cmd_rw(message):
 		roledict = {}
 		for x in serverconfig[message.server.id]["watched_roles"]:
 			roledict[f"<@&{x}>"] = x
-		roleid, ask = await reactify(message, roledict, "Which role do you want to remove?", show_return=True)
+		roleid, ask = await reactify(message, "Which role do you want to remove?", choices=roledict, show_return=True)
 		serverconfig[message.server.id]["watched_roles"].remove(roleid)
 		await client.edit_message(ask, embed=embed_gen(desc=f"Removed <@&{roleid}> from the role watch list."))	
 		save_server_config()

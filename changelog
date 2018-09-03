@@ -64,3 +64,5 @@
 	- Quick, rudimentary patch to allow for a more intuitive way to add voice watch users.
 2018-09-03
 	- Added role ping watching, and the "reactify" function. (A reaction-based menu system.)
+2018-09-03
+	- Boolean option for reactify, cleaned stop command.
