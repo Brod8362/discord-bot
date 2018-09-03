@@ -21,7 +21,8 @@ import os.path
 from distutils import util
 import functools
 import time
-
+import unicodedata
+import itertools
 
 #some global variables
 p = "[" # this is the prefix the bot will use to respond to commands
@@ -140,6 +141,8 @@ def upgrade_server_config(server): #this is only used for updating older configs
 		serverconfig[server]["watched_users"] = set()
 	if not "voice_logging" in serverconfig[server]["extra_options"]:
 		serverconfig[server]["extra_options"]["voice_logging"] = 1
+	if not "watched_roles" in serverconfig[server]:
+		serverconfig[server]["watched_roles"] = set()
 	save_server_config()
 
 	
@@ -189,6 +192,52 @@ def add_to_reaction_count(user, message, rx=False): #rx as in recieve, think rad
 			serverconfig[serverid]["user_stats"]["reactions_tx"][userid] += 1
 		except KeyError:
 			serverconfig[serverid]["user_stats"]["reactions_tx"][userid] = 1
+
+async def check_for_role_pings(message, deleted=False):
+	delstring = ""
+	if deleted == True:
+		delstring = "Deleted "
+	if message.role_mentions:
+		for role in message.role_mentions:
+			if role.id in serverconfig[message.server.id]["watched_roles"]:
+				embed = embed_gen(title=f"{delstring}Role ping in #{message.channel.name}", author=message.author, footer_author=True, footer_author_id=True, desc=message.content)
+				await client.send_message(client.get_channel(serverconfig[message.server.id]["log_channel"]), embed=embed)
+
+async def reactify(message, choices, question, show_return=False): #choices is a dict of things, where the key is what the bot shows and the value is what it returns when the option is picked
+	numdict = {}
+	string = ""
+	def num_to_emoji(n):
+		if n < 0 or n > 9:
+			raise Exception("OutOfRange")
+		return str(n) + "\N{Combining Enclosing Keycap}"
+	def emoji_to_num(e):
+		return e.encode("unicode_escape").decode("ascii")[0]
+	i = 1
+	for x in choices:
+		numdict[i] = x 
+		if show_return:
+			try: 
+				string += f"{num_to_emoji(i)} {x} ({choices[x]})\n"
+			except Exception as OutOfRange:
+				string += f"\N{NO ENTRY SIGN} {x}\n"
+		if not show_return:
+			string += f"{num_to_emoji(i)} {x}\n"
+		i += 1
+	embed = embed_gen(title=question, desc=string)	
+	ask = await client.send_message(message.channel, embed=embed)
+	i = 1
+	while i <= len(choices):
+		try:
+			await client.add_reaction(ask, num_to_emoji(i))	
+		except Exception as OutOfRange:
+			await client.add_reaction(ask, "\N{NO ENTRY SIGN}")
+			break
+		await asyncio.sleep(0.5)
+		i += 1
+	reply = await client.wait_for_reaction(message=ask, user=message.author, timeout=30)
+	choice = int(emoji_to_num(reply.reaction.emoji))
+	return choices[numdict[choice]], ask
+	
 
 def log_message(message):
 	logger.info(f"({message.server.name}) ({message.channel.name}) | {message.author.name}: {message.content}")
@@ -266,6 +315,10 @@ async def on_reaction_add(reaction, user):
 
 
 @client.event
+async def on_message_delete(message):
+	await check_for_role_pings(message, deleted=True)
+
+@client.event
 async def on_voice_state_update(before, after):
 	if before.id in serverconfig[before.server.id]["watched_users"] and serverconfig[before.server.id]["extra_options"]["voice_logging"]: 
 		timex = time.strftime("%H:%M:%S")
@@ -285,6 +338,7 @@ async def on_voice_state_update(before, after):
 @client.event
 async def on_message_edit(before, after):
 	await check_for_keys(after)
+	await check_for_role_pings(after)
 
 
 @client.event
@@ -296,6 +350,7 @@ async def on_message(message):
 	if not message.server.id in serverconfig:
 		create_server_config(message.server.id)
 	add_to_msg_count(message)
+	await check_for_role_pings(message)
 	if serverconfig[message.server.id]["extra_options"]["nadeko_logging"] == 1:
 		if message.content.startswith(".. "):
 			cmd, key, content = message.content.split(" ", 2)
@@ -558,7 +613,7 @@ async def cmd_8ball(message):
 	choice = random.choice(random_choices)
 	await client.send_message(message.channel, choice)
 
-@commands.register("keys", help="Access functions relating to server keys.", syntax="(add|del|list|clear|help) (key or NONE)", admin=True)
+@commands.register("keys", help="Manage server keywords.", syntax="(add|del|list|clear|help) (key or NONE)", admin=True)
 async def cmd_keys(message):
 	try:
 		cmd, option, args = message.content.split(" ", 2)	
@@ -633,7 +688,7 @@ async def find(message, term=None):
 		return None
 	return user
 
-@commands.register("watch", help="Access functions relating to watched users.", syntax="(add|del|list|clear|help) (key or NONE)", admin=True)
+@commands.register("watch", help="Manage watched users.", syntax="(add|del|list|clear|help) (key or NONE)", admin=True)
 async def cmd_watch(message):
 	try:
 		cmd, option, args = message.content.split(" ", 2)	
@@ -682,6 +737,47 @@ async def cmd_watch(message):
 		else:
 			serverconfig[message.server.id]["watched_users"].add(member.id)
 			await client.send_message(message.channel, f"Added {member.id} to watched users.") 
+
+@commands.register("rw", help="Manage watched roles.", admin=True,syntax="(add|del|list|clear|help)")
+async def cmd_rw(message):
+	try:
+		cmd, option, args = message.content.split(" ", 2)	
+	except:
+		try:
+			cmd, option = message.content.split(" ", 1)
+		except:
+			option = None
+	if option == "add":
+		roledict = {}
+		
+		for role in message.server.roles:
+			if role.mentionable and not role.id in serverconfig[message.server.id]["watched_roles"]:
+				roledict[f"<@&{role.id}>"] = role.id
+		roleid, ask = await reactify(message, roledict, "Which role do you want to add?", show_return=True)
+		serverconfig[message.server.id]["watched_roles"].add(roleid)
+		await client.edit_message(ask, embed=embed_gen(desc=f"Added <@&{roleid}> to the role watch list."))
+		save_server_config()
+	elif option == "remove" or option == "del":
+		roledict = {}
+		for x in serverconfig[message.server.id]["watched_roles"]:
+			roledict[f"<@&{x}>"] = x
+		roleid, ask = await reactify(message, roledict, "Which role do you want to remove?", show_return=True)
+		serverconfig[message.server.id]["watched_roles"].remove(roleid)
+		await client.edit_message(ask, embed=embed_gen(desc=f"Removed <@&{roleid}> from the role watch list."))	
+		save_server_config()
+	elif option == "list":
+		formatted_keys = map(lambda x: f"<@&{x}> ({x})" , serverconfig[message.server.id]["watched_roles"])
+		string = "\n".join(formatted_keys)
+		if not string:
+			string = "There are no watched roles."
+		embed = embed_gen(title="Watched Roles", desc=string)
+		await client.send_message(message.channel, embed=embed)
+	elif option == "clear":
+		serverconfig[message.server.id]["watched_roles"] = set()
+		await client.send_message(message.channel, "All watched roles removed.")
+		save_server_config()
+	elif option == "help" or option == None:
+		await client.send_message(message.channel, "Available options: `add`, `del`, `list`, `clear`, `help`") 
 
 async def start_auto_save():
 	while True:

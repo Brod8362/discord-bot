@@ -62,3 +62,5 @@
 	- Fixed a small bug where the minutes section in voice logging was actually the month
 2018-08-31
 	- Quick, rudimentary patch to allow for a more intuitive way to add voice watch users.
+2018-09-03
+	- Added role ping watching, and the "reactify" function. (A reaction-based menu system.)
