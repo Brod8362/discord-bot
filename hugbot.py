@@ -103,7 +103,7 @@ def check_bot_admin(member):
 	if str(member.id) == str(adminid):
 		return True
 	return False
-	
+
 def get_content(session, search_class, site, attributes=None, limit=None, params=None): #requests.Session(), str, str, dict, int, dict
 	page = session.get(site, params=params)
 	soup = BeautifulSoup(page.content, "html.parser")
@@ -203,7 +203,7 @@ async def check_for_role_pings(message, deleted=False):
 				embed = embed_gen(title=f"{delstring}Role ping in #{message.channel.name}", author=message.author, footer_author=True, footer_author_id=True, desc=message.content)
 				await client.send_message(client.get_channel(serverconfig[message.server.id]["log_channel"]), embed=embed)
 
-async def reactify(message, question, choices=None, show_return=False, boolean=False): #choices is a dict of things, where the key is what the bot shows and the value is what it returns when the option is picked
+async def reactify(message, question, choices=None, show_return=False, boolean=False, toggles=False): #choices is a dict of things, where the key is what the bot shows and the value is what it returns when the option is picked
 	numdict = {}
 	string = ""
 	def num_to_emoji(n):
@@ -211,26 +211,38 @@ async def reactify(message, question, choices=None, show_return=False, boolean=F
 			raise Exception("OutOfRange")
 		return str(n) + "\N{Combining Enclosing Keycap}"
 	def emoji_to_num(e):
-		return e.encode("unicode_escape").decode("ascii")[0]
+		return e[0]
 	i = 1
-	if boolean: ##true/false options
+	if boolean: #true/false options
 		ask = await client.send_message(message.channel, embed=embed_gen(desc=question))
 		await client.add_reaction(ask, "\N{WHITE HEAVY CHECK MARK}")
 		await client.add_reaction(ask, "\N{NO ENTRY SIGN}")
-		reply = await client.wait_for_reaction(message=ask, user=message.author, timeout=30)
-		if reply.reaction.emoji == "\N{WHITE HEAVY CHECK MARK}":
-			return ask, True
-		else:
-			return ask, False
-	for x in choices:
-		numdict[i] = x 
+		while True:
+			reply = await client.wait_for_reaction(message=ask, user=message.author, timeout=30)
+			if not reply:
+				await client.add_reaction(ask, "\N{CLOCK FACE TEN-THIRTY}")
+				break
+			if reply.reaction.emoji == "\N{WHITE HEAVY CHECK MARK}":
+				return True, ask
+			elif reply.reaction.emoji == "\N{NO ENTRY SIGN}":
+				return False, ask
+
+	for x in choices: #for dicts
+		numdict[i] = x
+		emoji = num_to_emoji(i) 
 		if show_return:
 			try: 
-				string += f"{num_to_emoji(i)} {x} ({choices[x]})\n"
+				string += f"{emoji}{x} ({choices[x]})\n"
 			except Exception as OutOfRange:
 				string += f"\N{NO ENTRY SIGN} {x}\n"
 		if not show_return:
-			string += f"{num_to_emoji(i)} {x}\n"
+			toggle_state=""
+			if toggles: #for the "toggles" mode
+				if not choices[x]:
+					toggle_state = "\N{NO ENTRY SIGN}"
+				else:
+					toggle_state = "\N{WHITE HEAVY CHECK MARK}"
+			string += f"{emoji}{toggle_state} {x}\n"
 		i += 1
 	embed = embed_gen(title=question, desc=string)	
 	ask = await client.send_message(message.channel, embed=embed)
@@ -245,7 +257,22 @@ async def reactify(message, question, choices=None, show_return=False, boolean=F
 		i += 1
 	reply = await client.wait_for_reaction(message=ask, user=message.author, timeout=30)
 	choice = int(emoji_to_num(reply.reaction.emoji))
-	return choices[numdict[choice]], ask
+	final = choices[numdict[choice]] #for regular operation
+	alt_final = numdict[choice] #for the toggles option
+	if toggles:
+		await client.edit_message(ask, embed=embed_gen(desc=f"Do what with `{alt_final}`?"))
+		await client.add_reaction(ask, "\N{WHITE HEAVY CHECK MARK}")
+		await client.add_reaction(ask, "\N{NO ENTRY SIGN}")
+		reply = await client.wait_for_reaction(message=ask, user=message.author, timeout=30)
+		if not reply:
+			await client.add_reaction(ask, "\N{CLOCK FACE TEN-THIRTY}")
+			#figure out what to do here
+		if reply.reaction.emoji == "\N{WHITE HEAVY CHECK MARK}":
+			return alt_final, ask, True
+		elif reply.reaction.emoji == "\N{NO ENTRY SIGN}":
+			return alt_final, ask, False
+	return final, ask
+
 	
 
 def log_message(message):
@@ -427,7 +454,7 @@ async def cmd_help(message):
 @commands.register("stop", help=f"Stops the bot.", syntax=f"(f)'", bot_admin = True)
 async def cmd_stop(message):
 
-		ask, output = await reactify(message, "Do you want to shut down the bot?", boolean=True)
+		output, ask = await reactify(message, "Do you want to shut down the bot?", boolean=True)
 		if output:
 			save_server_config()
 			await client.add_reaction(ask, "\N{REGIONAL INDICATOR SYMBOL LETTER K}")
@@ -440,25 +467,14 @@ async def cmd_invite(message):
 
 @commands.register("configure", admin=True)
 async def cmd_configure(message):
-	upgrade_server_config(message.server.id)
-	try:
-		cmd, option, new = message.content.split(" ", 3)
-	except:
-		string = ""
-		for x in serverconfig[message.server.id]["extra_options"]:
-			string += f"**{x}**:**{serverconfig[message.server.id]['extra_options'][x]}** \n"
-		await client.send_message(message.channel, string)
-	else:
-		if option in serverconfig[message.server.id]["extra_options"]:
-			try:
-				new = util.strtobool(new)
-			except ValueError:
-				await client.send_message(message.channel, "Invalid option.")
-				return
-			serverconfig[message.server.id]["extra_options"][option] = new
-			await client.send_message(message.channel, f"Server option **{option}** has been set to **{new}**.")
+	dict = {}
+	for x in serverconfig[message.server.id]["extra_options"]:
+		print(x)
+		dict[x] = serverconfig[message.server.id]["extra_options"][x]
+	option, ask, change = await reactify(message, "Choose an option:", choices=dict, toggles=True)	
+	serverconfig[message.server.id]["extra_options"][option] = change
+	await client.edit_message(ask, embed=embed_gen(desc=f"`{option}` changed to {change}."))
 	save_server_config()
-	
 @commands.register("sankaku", help="Retrieves image(s) from Sankaku using specified tags.", syntax=f"(tags)")
 async def cmd_sankaku(message):
 	if message.channel.id not in serverconfig[message.server.id]["nsfw_channels"]:
@@ -733,15 +749,11 @@ async def cmd_watch(message):
 @commands.register("rw", help="Manage watched roles.", admin=True,syntax="(add|del|list|clear|help)")
 async def cmd_rw(message):
 	try:
-		cmd, option, args = message.content.split(" ", 2)	
+		cmd, option = message.content.split(" ", 1)
 	except:
-		try:
-			cmd, option = message.content.split(" ", 1)
-		except:
-			option = None
+		option = None
 	if option == "add":
 		roledict = {}
-		
 		for role in message.server.roles:
 			if role.mentionable and not role.id in serverconfig[message.server.id]["watched_roles"]:
 				roledict[f"<@&{role.id}>"] = role.id
