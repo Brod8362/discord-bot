@@ -70,3 +70,5 @@
 	- Toggles option for reactify
 	- Reworked configuration command
 	- Made reactify output more consistent 
+2018-09-06
+	- Fixed a bug where a user muting or deafening would trigger the voice log

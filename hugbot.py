@@ -362,6 +362,8 @@ async def on_voice_state_update(before, after):
 			embed = embed_gen(title=f"Voice State Change {timex} GMT", author=before, footer_author=True, footer_author_id=True, desc=f"\N{SPEAKER}\N{INBOX TRAY}{before.mention} joined `{after.voice.voice_channel.name}`", color=0xff66ff)
 			await client.send_message(client.get_channel(serverconfig[before.server.id]["log_channel"]), embed=embed)
 		if before.voice.voice_channel and after.voice.voice_channel: #changing channels (like on TV but much more exciting)
+			if before.voice.voice_channel.id == after.voice.voice_channel.id: #this is to catch things like muting and deafening
+				return
 			embed = embed_gen(title=f"Voice State Change {timex} GMT", author=before, footer_author=True, footer_author_id=True, desc=f"\N{SPEAKER}\N{TWISTED RIGHTWARDS ARROWS}{before.mention} moved from `{before.voice.voice_channel.name}` to `{after.voice.voice_channel.name}`", color=0xff66ff)
 			await client.send_message(client.get_channel(serverconfig[before.server.id]["log_channel"]), embed=embed)
 		
