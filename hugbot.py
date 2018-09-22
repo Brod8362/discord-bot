@@ -143,6 +143,8 @@ def upgrade_server_config(server): #this is only used for updating older configs
 		serverconfig[server]["extra_options"]["voice_logging"] = 1
 	if not "watched_roles" in serverconfig[server]:
 		serverconfig[server]["watched_roles"] = set()
+	if not "excluded_channels" in serverconfig[server]:
+		serverconfig[server]["excluded_channels"] = set()
 	save_server_config()
 
 	
@@ -150,6 +152,8 @@ def upgrade_server_config(server): #this is only used for updating older configs
 
 async def check_for_keys(message): #used to check for watch keys in messages
 	content = message.content #key watching
+	if message.channel.id in serverconfig[message.server.id]["excluded_channels"]:
+		return
 	try:
 		if serverconfig[message.server.id]["keys"]:
 			keys_escaped = "|".join(serverconfig[message.server.id]["keys"])
@@ -784,6 +788,56 @@ async def cmd_rw(message):
 		save_server_config()
 	elif option == "help" or option == None:
 		await client.send_message(message.channel, "Available options: `add`, `del`, `list`, `clear`, `help`") 
+
+
+@commands.register("exclude", help="Manage excluded channels.", syntax="(add|del|list|clear|help) (key or NONE)", admin=True)
+async def cmd_watch(message):
+	try:
+		cmd, option, args = message.content.split(" ", 2)	
+	except:
+		try:
+			cmd, option = message.content.split(" ", 1)
+		except:
+			option = None
+	if option == "add":
+		try:
+			if serverconfig[message.server.id] == None:
+				pass
+		except KeyError:
+			create_server_config(message.server.id)
+		serverconfig[message.server.id]["excluded_channels"].add(args)
+		await client.send_message(message.channel, f"Added {args} to watched users.")
+		save_server_config()
+	elif option == "remove" or option == "del":
+		try:
+			serverconfig[message.server.id]["excluded_channels"].remove(args)
+		except:
+			await client.send_message(message.channel, "That ID isn't in the excluded channels.")
+			return
+		await client.send_message(message.channel, f"{args} has been removed from the excluded channels.")	
+		save_server_config()
+	elif option == "list":
+		formatted_keys = map(lambda x: f"<#{x}>" , serverconfig[message.server.id]["excluded_channels"])
+		string = ", ".join(formatted_keys)
+		if not string:
+			string = "There are no excluded channels."
+		await client.send_message(message.channel, string)
+	elif option == "clear":
+		serverconfig[message.server.id]["excluded_channels"] = set()
+		await client.send_message(message.channel, "All excluded channels removed.")
+		save_server_config()
+	elif option == "help":
+		await client.send_message(message.channel, "Available options: `add`, `del`, `list`, `clear`, `help`, `here`") 
+	elif option == "here":
+		if not message.channel.id in serverconfig[message.server.id]["excluded_channels"]:
+			serverconfig[message.server.id]["excluded_channels"].add(message.channel.id)
+			await client.send_message(message.channel, "Added current channel to exclude list.")
+		else:
+			serverconfig[message.server.id]["excluded_channels"].remove(message.channel.id)
+			await client.send_message(message.channel, "Removed current channel from exclude list.")
+	else:
+		await client.send_message(message.channel, "Available options: `add`, `del`, `list`, `clear`, `help`, `here`")
+
 
 async def start_auto_save():
 	while True:
