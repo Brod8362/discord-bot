@@ -63,7 +63,7 @@ async def get_user(id):
 	return user
 
 #lets make me a good embed
-def embed_gen(title=None, desc=None, color=0x000000, author=None, footer_content=None, footer_icon_url=None, image_url=None, type=None, footer_author=False, footer_author_id=False): #str, str, hex, discord.User(), str, str, str, str, bool, bool
+def embed_gen(title=None, desc=None, color=0x4f545c, author=None, footer_content=None, footer_icon_url=None, image_url=None, type=None, footer_author=False, footer_author_id=False): #str, str, hex, discord.User(), str, str, str, str, bool, bool
 		#Some words on the types: if you specify a type, your title and color are overriden. Types are eventually going to be moved to a separate file, where you can add your own custom types. 
 	if type != None:
 		if type == "error":
@@ -443,7 +443,7 @@ async def cmd_help(message):
 			hlp = commands.get_help(cmd, message.author)
 			if hlp != None:
 				string = string+f"\n**{cmd}**: {hlp}"
-		embd = embed_gen(title="List of Commands", desc=string, color=0x000000, author=message.author)
+		embd = embed_gen(title="List of Commands", desc=string, author=message.author)
 		await client.send_message(message.channel, embed=embd)
 		return
 	else:
@@ -454,7 +454,7 @@ async def cmd_help(message):
 			await client.send_message(message.channel, embed=embd)
 			return
 		syninfo = commands.get_syntax(msg)
-		embd = embed_gen(title=f"Help for: {msg}", desc=f"{helpinfo}\n**Syntax:**```{p}{msg} {syninfo}```", color=0x000000, author=message.author, footer_author=True)
+		embd = embed_gen(title=f"Help for: {msg}", desc=f"{helpinfo}\n**Syntax:**```{p}{msg} {syninfo}```", author=message.author, footer_author=True)
 		await client.send_message(message.channel, embed=embd)
 
 @commands.register("stop", help=f"Stops the bot.", syntax=f"(f)'", bot_admin = True)

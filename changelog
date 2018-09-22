@@ -74,3 +74,5 @@
 	- Fixed a bug where a user muting or deafening would trigger the voice log
 2018-09-22
 	- Added excluded channels, which won't detect watch keys said within them.
+2019-09-22
+	- Adjusted default embed color, adjusted other colors.
