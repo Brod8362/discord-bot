@@ -233,7 +233,10 @@ async def reactify(message, question, choices=None, show_return=False, boolean=F
 
 	for x in choices: #for dicts
 		numdict[i] = x
-		emoji = num_to_emoji(i) 
+		try:
+			emoji = num_to_emoji(i) 
+		except Exception as OutOfRange:
+			emoji = "\N{NO ENTRY SIGN}"
 		if show_return:
 			try: 
 				string += f"{emoji}{x} ({choices[x]})\n"
