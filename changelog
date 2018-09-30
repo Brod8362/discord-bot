@@ -78,4 +78,5 @@
 	- Adjusted default embed color, adjusted other colors.
 2018-09-23
 	- Fixed a bug where having > 9 pingable roles would cause an error
-
+2018-09-30
+	- Now tracking deleted messages.

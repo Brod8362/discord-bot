@@ -145,6 +145,8 @@ def upgrade_server_config(server): #this is only used for updating older configs
 		serverconfig[server]["watched_roles"] = set()
 	if not "excluded_channels" in serverconfig[server]:
 		serverconfig[server]["excluded_channels"] = set()
+	if not "deleted_messages" in serverconfig[server]["user_stats"]:
+		serverconfig[server]["user_stats"]["deleted_messages"] = {}
 	save_server_config()
 
 	
@@ -176,12 +178,24 @@ def add_to_msg_count(message):
 		serverconfig[serverid]["user_stats"]["images"][userid] = 0
 		serverconfig[serverid]["user_stats"]["reactions_rx"][userid] = 0
 		serverconfig[serverid]["user_stats"]["reactions_tx"][userid] = 0
- 
+		serverconfig[serverid]["user_stats"]["deleted_messages"][userid] = 0
 	if message.attachments:
 		try:
 			serverconfig[serverid]["user_stats"]["images"][userid] += 1
 		except KeyError:
 			serverconfig[serverid]["user_stats"]["images"][userid] = 1
+	if not userid in serverconfig[serverid]["user_stats"]["deleted_messages"]:
+			serverconfig[serverid]["user_stats"]["deleted_messages"][usr.id] = 0
+		
+
+def add_to_del_count(message):
+	userid = message.author.id
+	serverid = message.server.id
+	try:
+		serverconfig[serverid]["user_stats"]["deleted_messages"][userid] += 1
+	except KeyError:
+		serverconfig[serverid]["user_stats"]["deleted_messages"][userid] = 1
+
 		
 def add_to_reaction_count(user, message, rx=False): #rx as in recieve, think radio transmission, and yes i know it's a terrible name but i literally do not care
 	serverid = message.server.id
@@ -360,6 +374,7 @@ async def on_reaction_add(reaction, user):
 @client.event
 async def on_message_delete(message):
 	await check_for_role_pings(message, deleted=True)
+	add_to_del_count(message)
 
 @client.event
 async def on_voice_state_update(before, after):
@@ -570,7 +585,7 @@ async def cmd_uinfo(message):
 	embed = embed_gen(title=f"{usr.name}#{usr.discriminator}")
 	embed.set_thumbnail(url=usr.avatar_url)
 	if not usr.id in serverconfig[message.server.id]["user_stats"]["messages"]:
-		values = ['messages', 'images', 'reactions_tx', 'reactions_rx'] 
+		values = ['messages', 'images', 'reactions_tx', 'reactions_rx', 'deleted_messages'] 
 		for value in values:
 			serverconfig[message.server.id]["user_stats"][value][usr.id] = 0
 
@@ -583,6 +598,7 @@ async def cmd_uinfo(message):
 	"Images/Attachments Sent":serverconfig[message.server.id]["user_stats"]["images"][usr.id],
 	"Reactions Recieved":serverconfig[message.server.id]["user_stats"]["reactions_rx"][usr.id],
 	"Reactions Given":serverconfig[message.server.id]["user_stats"]["reactions_tx"][usr.id],
+	"Messages Deleted":serverconfig[message.server.id]["user_stats"]["deleted_messages"][usr.id]
 	}
 	for entry in fields:
 		embed.add_field(name=entry, value=fields[entry])
