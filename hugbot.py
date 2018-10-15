@@ -413,10 +413,14 @@ async def on_message(message):
 	await check_for_role_pings(message)
 	if serverconfig[message.server.id]["extra_options"]["nadeko_logging"] == 1:
 		if message.content.startswith(".. "):
-			cmd, key, content = message.content.split(" ", 2)
-			embd = embed_gen(title="Quote Created", desc=f"**{message.author.mention}** created quote **{key}** with content **{content}**", color=0x000000, author=message.author, footer_author=True, footer_author_id=True)
-			channelset = message.server.get_channel(serverconfig[message.server.id]["log_channel"])
-			await client.send_message(channelset, embed=embd)
+			confirmation = await client.wait_for_message(author=await get_user("116275390695079945"),timeout=3) 
+			if not confirmation:
+				return
+			elif "Added" in confirmation.embeds[0]["description"]:
+				cmd, key, content = message.content.split(" ", 2)
+				embd = embed_gen(title="Quote Created", desc=f"**{message.author.mention}** created quote `{key}` with content ```{content}```", color=0x000000, author=message.author, footer_author=True, footer_author_id=True)
+				channelset = message.server.get_channel(serverconfig[message.server.id]["log_channel"])
+				await client.send_message(channelset, embed=embd)
 		elif message.content.startswith(".qdel "): #nadeko logging 
 			confirmation = await client.wait_for_message(author=await get_user("116275390695079945")) #this is the nadeko bot user
 			if "deleted." in confirmation.embeds[0]["description"]:

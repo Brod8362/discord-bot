@@ -80,3 +80,5 @@
 	- Fixed a bug where having > 9 pingable roles would cause an error
 2018-09-30
 	- Now tracking deleted messages.
+2018-10-15
+	- Quote additions now wait for confirmation.
