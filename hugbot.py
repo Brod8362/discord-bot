@@ -185,7 +185,7 @@ def add_to_msg_count(message):
 		except KeyError:
 			serverconfig[serverid]["user_stats"]["images"][userid] = 1
 	if not userid in serverconfig[serverid]["user_stats"]["deleted_messages"]:
-			serverconfig[serverid]["user_stats"]["deleted_messages"][usr.id] = 0
+			serverconfig[serverid]["user_stats"]["deleted_messages"][userid] = 0
 		
 
 def add_to_del_count(message):
@@ -885,13 +885,12 @@ async def on_ready():
 		logger.info("Admin ID set to auto, defaulting to bot owner.")
 		global adminid
 		adminid = AppInfo.owner.id
-	for x in serverconfig:
-		upgrade_server_config(x)
-	logger.info("All server configs are up to date.")
 	await start_auto_save()
 
 
-
+for x in serverconfig:
+	upgrade_server_config(x)
+logger.info("All server configs are up to date.")
 
 client.run(config["token"])
 

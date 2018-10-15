@@ -82,3 +82,5 @@
 	- Now tracking deleted messages.
 2018-10-15
 	- Quote additions now wait for confirmation.
+2018-10-15
+	- Deleted messages now work properly for already established servers.
