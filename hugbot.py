@@ -611,9 +611,19 @@ async def cmd_uinfo(message):
 @commands.register("sinfo", help="Find information about the server the command is run in.")
 async def cmd_sinfo(message):
 	server = message.server
-	embd = embed_gen(desc=f"**Name:** {server.name}\n**Region:** {server.region}\n**Member Count:** {server.member_count}\n**Owner:** {server.owner.name}#{server.owner.discriminator}", type="info")
-	await client.send_message(message.channel, embed=embd)	
-
+	embed = embed_gen(title=f"{server.name}")
+	embed.set_thumbnail(url=server.icon_url)
+	fields = {
+	"Owner":f"{server.owner.name}#{server.owner.discriminator}",
+	"ID":server.id,
+	"Members":server.member_count,
+	"Region":server.region,
+	"Channels":len(server.channels)
+	}
+	for entry in fields:
+		embed.add_field(name=entry, value=fields[entry])
+	await client.send_message(message.channel, embed=embed)
+	
 @commands.register("servers", help="See all servers the bot is in.", bot_admin=True)
 async def cmd_servers(message):
 	string = ""
