@@ -84,3 +84,5 @@
 	- Quote additions now wait for confirmation.
 2018-10-15
 	- Deleted messages now work properly for already established servers.
+2018-11-23
+	- Updated appearance of the sinfo command

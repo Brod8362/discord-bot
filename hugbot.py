@@ -147,6 +147,8 @@ def upgrade_server_config(server): #this is only used for updating older configs
 		serverconfig[server]["excluded_channels"] = set()
 	if not "deleted_messages" in serverconfig[server]["user_stats"]:
 		serverconfig[server]["user_stats"]["deleted_messages"] = {}
+	if not "delete_warning" in serverconfig[server]["user_stats"]:
+		serverconfig[server]["user_stats"]["deleted_messages"]["delete_warning"] = {}
 	save_server_config()
 
 	
@@ -220,6 +222,12 @@ async def check_for_role_pings(message, deleted=False):
 			if role.id in serverconfig[message.server.id]["watched_roles"]:
 				embed = embed_gen(title=f"{delstring}Role ping in #{message.channel.name}", author=message.author, footer_author=True, footer_author_id=True, desc=message.content)
 				await client.send_message(client.get_channel(serverconfig[message.server.id]["log_channel"]), embed=embed)
+
+def check_for_high_delete_count(user):
+	amt = calculate_percent_deleted(user)
+	return (amt > 0.25)
+		
+		
 
 async def reactify(message, question, choices=None, show_return=False, boolean=False, toggles=False): #choices is a dict of things, where the key is what the bot shows and the value is what it returns when the option is picked
 	numdict = {}
@@ -375,6 +383,15 @@ async def on_reaction_add(reaction, user):
 async def on_message_delete(message):
 	await check_for_role_pings(message, deleted=True)
 	add_to_del_count(message)
+	try:
+		discard = serverconfig[message.server.id]["user_stats"][message.author.id]
+	except KeyError:
+		serverconfig[message.server.id]["user_stats"][message.author.id] = False
+	if check_for_high_delete_count(message.author) and serverconfig[message.server.id]["user_stats"][message.author.id]==False:
+		serverconfig[message.server.id]["user_stats"][message.author.id] = True
+		embed = embed_gen(title="High Delete Count", author=message.author, footer_author=True, footer_author_id=True, desc=f"{message.author.mention} has deleted over 25% of their messages. You may want to keep an eye on them.", color=0xff0000)
+		await client.send_message(client.get_channel(serverconfig[message.server.id]["log_channel"]), embed=embed)
+
 
 @client.event
 async def on_voice_state_update(before, after):
@@ -574,6 +591,7 @@ async def cmd_nsfw(message):
 
 @commands.register("uinfo", help="Find various information about a user.", syntax="(userid or NONE)")
 async def cmd_uinfo(message):
+#check_for_high_delete_count
 	try:
 		command, msg = message.content.split(" ", 1)
 	except ValueError:
@@ -592,6 +610,9 @@ async def cmd_uinfo(message):
 		values = ['messages', 'images', 'reactions_tx', 'reactions_rx', 'deleted_messages'] 
 		for value in values:
 			serverconfig[message.server.id]["user_stats"][value][usr.id] = 0
+	warning = ""
+	if check_for_high_delete_count(usr) and message.author.server_permissions.administrator:
+		warning = "⚠"		
 
 	fields = { #add fields to display here, they're done in order as shown here
 	"Nickname":usr.display_name,
@@ -602,18 +623,36 @@ async def cmd_uinfo(message):
 	"Images/Attachments Sent":serverconfig[message.server.id]["user_stats"]["images"][usr.id],
 	"Reactions Recieved":serverconfig[message.server.id]["user_stats"]["reactions_rx"][usr.id],
 	"Reactions Given":serverconfig[message.server.id]["user_stats"]["reactions_tx"][usr.id],
-	"Messages Deleted":serverconfig[message.server.id]["user_stats"]["deleted_messages"][usr.id]
+	f"Messages Deleted{warning}":f'{serverconfig[message.server.id]["user_stats"]["deleted_messages"][usr.id]} ({calculate_percent_deleted_nice(usr)}%)'
 	}
 	for entry in fields:
 		embed.add_field(name=entry, value=fields[entry])
 	await client.send_message(message.channel, embed=embed)
+
+def calculate_percent_deleted(usr):
+	return round(serverconfig[usr.server.id]["user_stats"]["deleted_messages"][usr.id]/serverconfig[usr.server.id]["user_stats"]["messages"][usr.id], 4)
+
+
+def calculate_percent_deleted_nice(usr):
+	return calculate_percent_deleted(usr)*100
+
 		
 @commands.register("sinfo", help="Find information about the server the command is run in.")
 async def cmd_sinfo(message):
 	server = message.server
-	embd = embed_gen(desc=f"**Name:** {server.name}\n**Region:** {server.region}\n**Member Count:** {server.member_count}\n**Owner:** {server.owner.name}#{server.owner.discriminator}", type="info")
-	await client.send_message(message.channel, embed=embd)	
-
+	embed = embed_gen(title=f"{server.name}")
+	embed.set_thumbnail(url=server.icon_url)
+	fields = {
+	"Owner":f"{server.owner.name}#{server.owner.discriminator}",
+	"ID":server.id,
+	"Members":server.member_count,
+	"Region":server.region,
+	"Channels":len(server.channels)
+	}
+	for entry in fields:
+		embed.add_field(name=entry, value=fields[entry])
+	await client.send_message(message.channel, embed=embed)
+	
 @commands.register("servers", help="See all servers the bot is in.", bot_admin=True)
 async def cmd_servers(message):
 	string = ""
@@ -861,6 +900,11 @@ async def cmd_watch(message):
 	else:
 		await client.send_message(message.channel, "Available options: `add`, `del`, `list`, `clear`, `help`, `here`")
 
+@commands.register("cleardeletewarning", help="Reset the delete warning for a user. This will allow the message to show up in the log again.", syntax="(user ID)", admin=True)
+async def cmd_cleardeletewarning(message):
+	cmd, userid = message.content.split(" ", 2)
+	serverconfig[message.server.id]["user_stats"][userid] = False
+	await client.send_message(message.channel, f"Cleared warning status for <@{userid}>.")
 
 async def start_auto_save():
 	while True:
