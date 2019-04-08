@@ -630,6 +630,8 @@ async def cmd_uinfo(message):
 	await client.send_message(message.channel, embed=embed)
 
 def calculate_percent_deleted(usr):
+	if serverconfig[usr.server.id]["user_stats"]["deleted_messages"][usr.id] == 0:
+		return 0.0
 	return round(serverconfig[usr.server.id]["user_stats"]["deleted_messages"][usr.id]/serverconfig[usr.server.id]["user_stats"]["messages"][usr.id], 4)
 
 
