@@ -224,6 +224,8 @@ async def check_for_role_pings(message, deleted=False):
 				await client.send_message(client.get_channel(serverconfig[message.server.id]["log_channel"]), embed=embed)
 
 def check_for_high_delete_count(user):
+	if serverconfig[user.server.id]["user_stats"]["messages"][user.id] < 250: #threshold 
+		return False
 	amt = calculate_percent_deleted(user)
 	return (amt > 0.25)
 		
