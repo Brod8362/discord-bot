@@ -911,6 +911,15 @@ async def cmd_cleardeletewarning(message):
 	serverconfig[message.server.id]["user_stats"]["delete_warning"].remove(userid)
 	await client.send_message(message.channel, f"Cleared warning status for <@{userid}>.")
 
+@commands.register("u", help="Alias for uinfo.")
+async def cmd_u(message):
+	await cmd_uinfo(message)
+
+@commands.register("userinfo", help="Alias for uinfo.")
+async def cmd_userinfo(message):
+	await cmd_uinfo(message)
+
+
 async def start_auto_save():
 	while True:
 		await asyncio.sleep(300)
