@@ -148,7 +148,7 @@ def upgrade_server_config(server): #this is only used for updating older configs
 	if not "deleted_messages" in serverconfig[server]["user_stats"]:
 		serverconfig[server]["user_stats"]["deleted_messages"] = {}
 	if not "delete_warning" in serverconfig[server]["user_stats"]:
-		serverconfig[server]["user_stats"]["deleted_messages"]["delete_warning"] = {}
+		serverconfig[server]["user_stats"]["delete_warning"] = set()
 	save_server_config()
 
 	
@@ -386,12 +386,13 @@ async def on_message_delete(message):
 	await check_for_role_pings(message, deleted=True)
 	add_to_del_count(message)
 	try:
-		discard = serverconfig[message.server.id]["user_stats"][message.author.id]
+		discard = serverconfig[message.server.id]["user_stats"]["deleted_messages"][message.author.id]
+		sent = serverconfig[message.server.id]["user_stats"]["messages"][message.author.id]
 	except KeyError:
-		serverconfig[message.server.id]["user_stats"][message.author.id] = False
-	if check_for_high_delete_count(message.author) and serverconfig[message.server.id]["user_stats"][message.author.id]==False:
-		serverconfig[message.server.id]["user_stats"][message.author.id] = True
-		embed = embed_gen(title="High Delete Count", author=message.author, footer_author=True, footer_author_id=True, desc=f"{message.author.mention} has deleted over 25% of their messages. You may want to keep an eye on them.", color=0xff0000)
+		serverconfig[message.server.id]["user_stats"]["deleted_messages"][message.author.id] = 0
+	if check_for_high_delete_count(message.author) and not message.author.id in serverconfig[message.server.id]["user_stats"]["delete_warning"]:
+		serverconfig[message.server.id]["user_stats"]["delete_warning"].add(message.author.id)
+		embed = embed_gen(title="High Delete Count", author=message.author, footer_author=True, footer_author_id=True, desc=f"{message.author.mention} has deleted over 25% ({discard} out of {sent}) of their messages. You may want to keep an eye on them.", color=0xff0000)
 		await client.send_message(client.get_channel(serverconfig[message.server.id]["log_channel"]), embed=embed)
 
 
@@ -907,7 +908,7 @@ async def cmd_watch(message):
 @commands.register("cleardeletewarning", help="Reset the delete warning for a user. This will allow the message to show up in the log again.", syntax="(user ID)", admin=True)
 async def cmd_cleardeletewarning(message):
 	cmd, userid = message.content.split(" ", 2)
-	serverconfig[message.server.id]["user_stats"][userid] = False
+	serverconfig[message.server.id]["user_stats"]["delete_warning"].remove(userid)
 	await client.send_message(message.channel, f"Cleared warning status for <@{userid}>.")
 
 async def start_auto_save():
