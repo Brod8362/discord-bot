@@ -1,3 +1,9 @@
+Note
+====
+This project has been discontinued. It lives on in a sequel available [here](https://github.com/brod8362/discord-bot-2).
+You can still add it to your server with [this link](https://discordapp.com/oauth2/authorize?&client_id=451526467596058625&scope=bot&permissions=0).
+
+
 How to Run
 ==========
 
